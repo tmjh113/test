@@ -313,18 +313,13 @@
             window.location.href = `/test${path}`;
         }
 
-        // 確保 DOM 完全載入後再執行
+        // 等待 DOM 加載完成
         document.addEventListener('DOMContentLoaded', () => {
-            // 初始化 Firebase
-            const firebaseConfig = {
-                // ... 你的 Firebase 配置
-            };
-            
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            
-            const db = firebase.firestore();
+            // 修改所有功能卡片的點擊事件
+            document.querySelectorAll('button[onclick^="window.location"]').forEach(button => {
+                const path = button.getAttribute('onclick').match(/'([^']+)'/)[1];
+                button.onclick = () => navigateTo(path.replace('/test', ''));
+            });
 
             // 監聽用戶登入狀態
             firebase.auth().onAuthStateChanged(async (user) => {
@@ -666,12 +661,6 @@
                 alert('更新頭像失敗，請稍後再試');
             }
         }
-
-        // 修改所有功能卡片的點擊事件
-        document.querySelectorAll('button[onclick^="window.location"]').forEach(button => {
-            const path = button.getAttribute('onclick').match(/'([^']+)'/)[1];
-            button.onclick = () => navigateTo(path.replace('/test', ''));
-        });
     </script>
 
     <!-- 在 Firebase SDK 之後，但在其他 script 之前添加 -->

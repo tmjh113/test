@@ -31,6 +31,15 @@
             window.location.href = `/test${path}`;
         }
 
+        // 等待 DOM 加載完成
+        document.addEventListener('DOMContentLoaded', () => {
+            // 修改返回按鈕
+            const backButton = document.querySelector('button[onclick^="window.location"]');
+            if (backButton) {
+                backButton.onclick = () => navigateTo('/index.html');
+            }
+        });
+
         // 檢查登入狀態
         firebase.auth().onAuthStateChanged(async (user) => {
             if (!user) {
@@ -40,11 +49,6 @@
             await loadRecentChats();
             updatePendingCount();
         });
-
-        // 修改返回按鈕
-        document.querySelector('button[onclick^="window.location"]').onclick = function() {
-            navigateTo('/index.html');
-        };
     </script>
 
     <style>

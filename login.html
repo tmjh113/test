@@ -220,6 +220,27 @@ function navigateTo(path) {
     window.location.href = `/test${path}`;
 }
 
+// 等待 DOM 加載完成
+document.addEventListener('DOMContentLoaded', () => {
+    // 修改返回首頁按鈕
+    const homeLink = document.querySelector('.fixed.top-4.left-4 a');
+    if (homeLink) {
+        homeLink.onclick = function(e) {
+            e.preventDefault();
+            navigateTo('/index.html');
+        };
+    }
+
+    // 修改註冊連結
+    const registerLink = document.querySelector('a[href="/test/register.html"]');
+    if (registerLink) {
+        registerLink.onclick = function(e) {
+            e.preventDefault();
+            navigateTo('/register.html');
+        };
+    }
+});
+
 async function handleLogin(event) {
     event.preventDefault();
     
@@ -251,7 +272,7 @@ async function handleLogin(event) {
         
         // 等待動畫播放完成後跳轉
         setTimeout(() => {
-            navigateTo('/home.html');  // 使用導航函數
+            navigateTo('/home.html');
         }, 1500);
     } catch (error) {
         console.error('登入錯誤:', error);
@@ -269,18 +290,6 @@ async function handleLogin(event) {
         alert(errorMessage);
     }
 }
-
-// 修改返回首頁按鈕
-document.querySelector('.fixed.top-4.left-4 a').onclick = function(e) {
-    e.preventDefault();
-    navigateTo('/index.html');
-};
-
-// 修改註冊連結
-document.querySelector('a[href="/test/register.html"]').onclick = function(e) {
-    e.preventDefault();
-    navigateTo('/register.html');
-};
 </script>
 </body>
 </html> 
