@@ -621,16 +621,34 @@
                     postElement.innerHTML = `
                         <div class="p-4">
                             <!-- 用戶信息 -->
-                            <div class="flex items-center mb-4">
-                                <div class="w-10 h-10 rounded-full overflow-hidden">
-                                    <img src="${userData.photoURL || getUserAvatar(postData.userId)}" 
-                                         class="w-full h-full object-cover"
-                                         loading="lazy"
-                                         alt="${displayName}">
-                                </div>
-                                <div class="ml-3">
-                                    <div class="font-semibold">${displayName}</div>
-                                    <div class="text-xs text-gray-500">${formatTime(postData.createdAt)}</div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center overflow-hidden mr-3">
+                                        ${userData.avatarUrl ? 
+                                            `<img src="${userData.avatarUrl}" class="w-full h-full object-cover">` :
+                                            `<span class="text-white font-bold">${userData.username[0].toUpperCase()}</span>`
+                                        }
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div>
+                                            <span class="font-medium text-gray-800 hover:text-blue-500 cursor-pointer" 
+                                                  onclick="window.location.href='user-profile.html?uid=${postData.userId}'">
+                                                ${userData.username}
+                                            </span>
+                                            <div class="text-sm text-gray-500">${formatTime(postData.createdAt)}</div>
+                                        </div>
+                                        <!-- 添加追蹤按鈕 -->
+                                        ${currentUser && currentUser.uid !== postData.userId ? `
+                                            <button onclick="event.stopPropagation(); toggleFollowUser('${postData.userId}', this)" 
+                                                    class="ml-4 px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
+                                                        currentUser.following?.includes(postData.userId) ? 
+                                                        'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                                                        'bg-blue-500 text-white hover:bg-blue-600'
+                                                    }">
+                                                ${currentUser.following?.includes(postData.userId) ? '已追蹤' : '追蹤'}
+                                            </button>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
 
@@ -1013,6 +1031,58 @@
                 
                 // 觸發點讚
                 await toggleLike(postId);
+            }
+        }
+
+        // 添加 toggleFollowUser 函數
+        async function toggleFollowUser(targetUserId, button) {
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            button.disabled = true;
+            button.classList.add('opacity-50');
+            
+            try {
+                const isFollowing = currentUser.following?.includes(targetUserId);
+                
+                // 更新當前用戶的追蹤列表
+                await db.collection('users').doc(currentUser.uid).update({
+                    following: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(targetUserId) :
+                        firebase.firestore.FieldValue.arrayUnion(targetUserId)
+                });
+
+                // 更新目標用戶的粉絲列表
+                await db.collection('users').doc(targetUserId).update({
+                    followers: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(currentUser.uid) :
+                        firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 更新本地狀態
+                if (!currentUser.following) currentUser.following = [];
+                if (isFollowing) {
+                    currentUser.following = currentUser.following.filter(id => id !== targetUserId);
+                } else {
+                    currentUser.following.push(targetUserId);
+                }
+
+                // 更新按鈕樣式
+                button.className = `ml-4 px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
+                    !isFollowing ? 
+                    'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                    'bg-blue-500 text-white hover:bg-blue-600'
+                }`;
+                button.textContent = !isFollowing ? '已追蹤' : '追蹤';
+                
+            } catch (error) {
+                console.error('追蹤操作失敗:', error);
+                alert('操作失敗，請稍後再試');
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-50');
             }
         }
     </script>

@@ -157,22 +157,52 @@
         /* 圖片網格效果 */
         .image-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+            gap: 0.75rem;
+            width: 100%;
         }
 
-        .image-grid img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
+        .image-grid > div {
+            position: relative;
+            overflow: hidden;
             border-radius: 0.5rem;
-            transition: all 0.3s ease;
+            width: 100%;
+            padding-bottom: 100%; /* 保持 1:1 的寬高比 */
+        }
+
+        .image-grid.grid-1 { 
+            grid-template-columns: 1fr;
+        }
+
+        .image-grid.grid-1 > div {
+            padding-bottom: 75%; /* 4:3 的寬高比 */
+        }
+
+        .image-grid.grid-2 { 
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .image-grid.grid-3 { 
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .image-grid.grid-4 { 
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        /* 圖片樣式 */
+        .image-grid img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
         }
 
         .image-grid img:hover {
             transform: scale(1.05);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         /* 用戶列表項目動畫 */
@@ -217,6 +247,49 @@
         .loading-pulse {
             animation: pulse 1.5s infinite;
         }
+
+        /* 圖片預覽模態框動畫 */
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-animate {
+            animation: modalFadeIn 0.3s ease-out;
+        }
+
+        /* 圖片預覽相關樣式 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fixed {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* 圖片過渡效果 */
+        img {
+            transition: transform 0.3s ease-out;
+        }
+
+        /* 禁止圖片被選中 */
+        .select-none {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* 圖片載入動畫 */
+        @keyframes imageFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .max-w-full.max-h-full {
+            animation: imageFadeIn 0.3s ease-out;
+        }
     </style>
 
     <script>
@@ -251,7 +324,15 @@
 
         async function loadUserProfile() {
             try {
-                const userDoc = await db.collection('users').doc(targetUserId).get();
+                // 並行請求用戶資料和貼文
+                const [userDoc, postsSnapshot] = await Promise.all([
+                    db.collection('users').doc(targetUserId).get(),
+                    db.collection('posts')
+                        .where('userId', '==', targetUserId)
+                        .orderBy('createdAt', 'desc')
+                        .get()
+                ]);
+
                 if (!userDoc.exists) {
                     alert('找不到該用戶');
                     history.back();
@@ -260,40 +341,64 @@
 
                 targetUserData = userDoc.data();
                 
-                // 更新頁面標題
-                document.title = `${targetUserData.username} 的個人資料 - 乾淨天中`;
-
-                // 更新用戶資料
-                document.getElementById('username').textContent = targetUserData.username;
-                document.getElementById('userBio').textContent = targetUserData.bio || '這個用戶很神秘，還沒有介紹自己';
-
-                // 更新頭像
-                const avatarDiv = document.getElementById('userAvatar');
-                if (targetUserData.avatarUrl) {
-                    avatarDiv.innerHTML = `<img src="${targetUserData.avatarUrl}" class="w-full h-full rounded-full object-cover">`;
-                } else {
-                    avatarDiv.innerHTML = `<span>${targetUserData.username[0].toUpperCase()}</span>`;
-                }
-
-                // 更新統計數據
-                document.getElementById('followersCount').textContent = targetUserData.followers?.length || 0;
-                document.getElementById('followingCount').textContent = targetUserData.following?.length || 0;
-
-                // 設置追蹤按鈕
-                const followButton = document.getElementById('followButton');
-                if (currentUser.uid !== targetUserId) {
-                    const isFollowing = currentUser.following.includes(targetUserId);
-                    updateFollowButton(isFollowing);
-                    followButton.classList.remove('hidden');
-                }
-
-                // 載入貼文
-                loadUserPosts();
+                // 更新用戶界面
+                updateUserInterface(targetUserData);
+                
+                // 更新貼文
+                updatePosts(postsSnapshot);
 
             } catch (error) {
-                console.error('載入用戶資料失敗:', error);
-                alert('載入用戶資料失敗，請稍後再試');
+                console.error('載入失敗:', error);
+                alert('載入失敗，請稍後再試');
             }
+        }
+
+        function updateUserInterface(userData) {
+            document.title = `${userData.username} 的個人資料 - 乾淨天中`;
+            document.getElementById('username').textContent = userData.username;
+            document.getElementById('userBio').textContent = userData.bio || '這個用戶很神秘，還沒有介紹自己';
+
+            const avatarDiv = document.getElementById('userAvatar');
+            if (userData.avatarUrl) {
+                avatarDiv.innerHTML = `<img src="${userData.avatarUrl}" class="w-full h-full rounded-full object-cover">`;
+            } else {
+                avatarDiv.innerHTML = `<span>${userData.username[0].toUpperCase()}</span>`;
+            }
+
+            document.getElementById('followersCount').textContent = userData.followers?.length || 0;
+            document.getElementById('followingCount').textContent = userData.following?.length || 0;
+
+            const followButton = document.getElementById('followButton');
+            if (currentUser.uid !== targetUserId) {
+                const isFollowing = currentUser.following.includes(targetUserId);
+                updateFollowButton(isFollowing);
+                followButton.classList.remove('hidden');
+            }
+        }
+
+        function updatePosts(postsSnapshot) {
+            const loading = document.getElementById('loading');
+            const noPosts = document.getElementById('noPosts');
+            const userPosts = document.getElementById('userPosts');
+
+            loading.classList.add('hidden');
+            
+            if (postsSnapshot.empty) {
+                noPosts.classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('postsCount').textContent = postsSnapshot.size;
+
+            // 使用 DocumentFragment 優化 DOM 操作
+            const fragment = document.createDocumentFragment();
+            postsSnapshot.forEach(doc => {
+                const postData = doc.data();
+                const postElement = createPostElement(doc.id, postData);
+                fragment.appendChild(postElement);
+            });
+
+            userPosts.appendChild(fragment);
         }
 
         function updateFollowButton(isFollowing) {
@@ -363,54 +468,24 @@
             }
         }
 
-        async function loadUserPosts() {
-            const loading = document.getElementById('loading');
-            const noPosts = document.getElementById('noPosts');
-            const userPosts = document.getElementById('userPosts');
-
-            try {
-                const postsSnapshot = await db.collection('posts')
-                    .where('userId', '==', targetUserId)
-                    .orderBy('createdAt', 'desc')
-                    .get();
-
-                loading.classList.add('hidden');
-                
-                if (postsSnapshot.empty) {
-                    noPosts.classList.remove('hidden');
-                    return;
-                }
-
-                // 更新貼文數量
-                document.getElementById('postsCount').textContent = postsSnapshot.size;
-
-                postsSnapshot.forEach(doc => {
-                    const postData = doc.data();
-                    const postElement = createPostElement(doc.id, postData);
-                    userPosts.appendChild(postElement);
-                });
-
-            } catch (error) {
-                console.error('載入貼文失敗:', error);
-                loading.classList.add('hidden');
-                userPosts.innerHTML = '<div class="text-red-500 text-center">載入貼文失敗，請稍後再試</div>';
-            }
-        }
-
         function createPostElement(postId, postData) {
             const div = document.createElement('div');
             div.className = 'post-card bg-white rounded-lg shadow p-4 mb-4 card-animate';
             
+            // 處理圖片顯示
             let imagesHtml = '';
-            if (postData.imageUrls && postData.imageUrls.length > 0) {
+            if (postData.images && postData.images.length > 0) {
+                const gridClass = getGridClass(postData.images.length);
                 imagesHtml = `
-                    <div class="image-grid">
-                        ${postData.imageUrls.map(url => `
-                            <img src="${url}" 
-                                 alt="貼文圖片" 
-                                 class="cursor-pointer"
-                                 onclick="showImagePreview('${url}')"
-                                 loading="lazy">
+                    <div class="image-grid ${gridClass} rounded-lg overflow-hidden mb-3">
+                        ${postData.images.map(url => `
+                            <div>
+                                <img src="${url}" 
+                                     alt="貼文圖片" 
+                                     class="cursor-pointer hover:scale-105 transition-transform duration-300"
+                                     onclick="showImagePreview('${url}')"
+                                     loading="lazy">
+                            </div>
                         `).join('')}
                     </div>
                 `;
@@ -639,18 +714,88 @@
         // 圖片預覽功能
         function showImagePreview(imageUrl) {
             const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50';
+            modal.className = 'fixed inset-0 bg-black flex items-center justify-center z-50';
             modal.onclick = () => modal.remove();
             
+            // 預先載入圖片
+            const img = new Image();
+            img.src = imageUrl;
+            
             modal.innerHTML = `
-                <div class="max-w-4xl max-h-[90vh] p-2 modal-animate">
-                    <img src="${imageUrl}" 
-                         class="max-w-full max-h-[85vh] object-contain rounded-lg" 
-                         onclick="event.stopPropagation()">
+                <div class="relative w-full h-full flex items-center justify-center">
+                    <!-- 關閉按鈕 -->
+                    <button class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+
+                    <!-- 載入指示器 -->
+                    <div id="loadingIndicator" class="absolute inset-0 flex items-center justify-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                    </div>
+
+                    <!-- 圖片容器 -->
+                    <div class="w-full h-full flex items-center justify-center">
+                        <img src="${imageUrl}" 
+                             class="w-full h-full object-contain select-none"
+                             onclick="event.stopPropagation()"
+                             style="cursor: zoom-out;"
+                             ondblclick="toggleImageZoom(this)">
+                    </div>
                 </div>
             `;
             
             document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+
+            // 圖片載入完成後隱藏載入指示器
+            const loadingIndicator = modal.querySelector('#loadingIndicator');
+            img.onload = () => {
+                loadingIndicator.style.display = 'none';
+            };
+
+            modal.addEventListener('click', () => {
+                document.body.style.overflow = '';
+                modal.remove();
+            });
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    document.body.style.overflow = '';
+                    modal.remove();
+                    document.removeEventListener('keydown', handleKeyDown);
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        // 修改 toggleImageZoom 函數
+        function toggleImageZoom(img) {
+            if (img.style.cursor === 'zoom-out') {
+                // 縮小到原始大小
+                img.style.cursor = 'zoom-in';
+                img.style.width = 'auto';
+                img.style.height = 'auto';
+                img.style.maxWidth = '90vw';
+                img.style.maxHeight = '90vh';
+            } else {
+                // 放大到全螢幕
+                img.style.cursor = 'zoom-out';
+                img.style.width = '100%';
+                img.style.height = '100%';
+            }
+        }
+
+        // 添加 getGridClass 函數
+        function getGridClass(imageCount) {
+            switch (imageCount) {
+                case 1: return 'grid-1';
+                case 2: return 'grid-2';
+                case 3: return 'grid-3';
+                case 4: return 'grid-4';
+                default: return 'grid-3';
+            }
         }
     </script>
 </body>
