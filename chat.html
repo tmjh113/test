@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     
     <script>
         const firebaseConfig = {
@@ -20,11 +21,29 @@
             storageBucket: "tmjhpro.firebasestorage.app",
             messagingSenderId: "602310027605",
             appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
-            measurementId: "G-CRPMJJ8KZP"
+            measurementId: "G-CRPMJJ8KZP",
+            databaseURL: "https://tmjhpro-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const rtdb = firebase.database();
+
+        // 在 firebaseConfig 下方添加性能優化設定
+        firebase.firestore().settings({
+            cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+        });
+
+        // 啟用離線持久化
+        firebase.firestore().enablePersistence()
+            .catch((err) => {
+                console.log('離線模式啟用失敗:', err);
+            });
+
+        // 添加性能優化的函數
+        function optimizeImageLoad(url, size = 200) {
+            return `${url}?width=${size}&height=${size}&quality=75`;
+        }
     </script>
 
     <style>
@@ -133,60 +152,346 @@
             border-radius: 3px;
         }
 
-        /* 移動端優化樣式 */
+        /* 手機端優化樣式 */
         @media (max-width: 768px) {
+            /* 聊天室容器 */
             .chat-container {
-                height: calc(100vh - 120px);
-                margin-top: 60px;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
             }
 
+            /* 頂部導航欄 */
+            .nav-header {
+                padding: 0.75rem 1rem;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(8px);
+            }
+
+            /* 聊天列表 */
+            .chat-list-container {
+                padding-top: 4.5rem;
+                padding-bottom: 1rem;
+            }
+
+            /* 聊天氣泡 */
             .message-bubble {
                 max-width: 85%;
                 font-size: 0.95rem;
+                padding: 0.75rem 1rem;
+                line-height: 1.4;
             }
 
-            .chat-input {
-                position: fixed;
+            .message-bubble.own {
+                background: linear-gradient(135deg, #4F46E5, #6366F1);
+                border-radius: 18px 18px 4px 18px;
+            }
+
+            .message-bubble.other {
+                background: #F3F4F6;
+                border-radius: 18px 18px 18px 4px;
+            }
+
+            /* 輸入框區域 */
+            .chat-input-container {
+                position: sticky;
                 bottom: 0;
                 left: 0;
                 right: 0;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(8px);
+                padding: 0.75rem 1rem;
+                border-top: 1px solid rgba(229, 231, 235, 0.5);
+            }
+
+            /* 搜尋框 */
+            .search-input {
+                border-radius: 9999px;
+                padding: 0.625rem 1rem 0.625rem 2.5rem;
+                background: rgba(243, 244, 246, 0.8);
+                backdrop-filter: blur(8px);
+            }
+
+            /* 用戶卡片 */
+            .user-card {
+                padding: 1rem;
+                margin: 0.5rem 0;
+                border-radius: 16px;
                 background: white;
-                padding: 10px;
-                box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                transition: transform 0.2s ease;
+            }
+
+            .user-card:active {
+                transform: scale(0.98);
+            }
+
+            /* 底部安全區域 */
+            .safe-area-bottom {
+                padding-bottom: env(safe-area-inset-bottom);
             }
         }
 
         /* 改進的動畫效果 */
-        .slide-up {
-            animation: slideUp 0.3s ease-out;
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
+        .fade-in-up {
+            animation: fadeInUp 0.3s ease-out forwards;
         }
 
-        /* 改進的請求卡片樣式 */
-        .request-card {
-            background: linear-gradient(to right, #ffffff, #f8fafc);
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin: 12px;
+        /* 改進的按鈕效果 */
+        .action-button {
+            position: relative;
             overflow: hidden;
             transition: all 0.3s ease;
         }
 
-        .request-card:active {
-            transform: scale(0.98);
+        .action-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%);
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.5s ease-out;
         }
 
-        /* 按鈕動畫 */
+        .action-button:active::after {
+            transform: translate(-50%, -50%) scale(2);
+        }
+
+        /* 正在打字的動畫效果 */
+        .typing-indicator-container {
+            padding: 0.5rem 1rem;
+            border-radius: 18px;
+            background: rgba(243, 244, 246, 0.8);
+            display: inline-flex;
+            align-items: center;
+            margin: 0.5rem 0;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .typing-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background: #6366F1;
+            border-radius: 50%;
+            opacity: 0.6;
+            animation: typingAnimation 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        /* 改進聊天氣泡效果 */
+        .message-bubble {
+            position: relative;
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        .message-bubble.own {
+            background: linear-gradient(135deg, #4F46E5, #6366F1);
+            border-radius: 18px 18px 4px 18px;
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+        }
+
+        .message-bubble.other {
+            background: #F9FAFB;
+            border-radius: 18px 18px 18px 4px;
+            color: #1F2937;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 消息時間樣式 */
+        .message-time {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            opacity: 0.7;
+        }
+
+        /* 已讀標記 */
+        .read-status {
+            position: absolute;
+            right: 0.5rem;
+            bottom: 0.25rem;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        /* 輸入框美化 */
+        .chat-input {
+            background: rgba(249, 250, 251, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(229, 231, 235, 0.5);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #6366F1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        /* 發送按鈕美化 */
+        .send-button {
+            background: linear-gradient(135deg, #4F46E5, #6366F1);
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+        }
+
+        .send-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
+        }
+
+        .send-button:active {
+            transform: translateY(1px);
+        }
+
+        /* 添加載入動畫 */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* 優化過渡動畫 */
+        .chat-container {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* 改進的聊天氣泡 */
+        .message-bubble {
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        .message-bubble.own {
+            background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+
+        /* 優化滾動效果 */
+        .chat-messages {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 加入更多視覺回饋 */
+        .chat-item {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chat-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+        }
+
+        .chat-item:active::after {
+            transform: translateX(100%);
+            transition: transform 0.5s ease;
+        }
+
+        /* 優化載入狀態 */
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #6366F1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 優化按鈕效果 */
         .action-button {
-            transition: all 0.2s ease;
+            transform: translateY(0);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .action-button:active {
-            transform: scale(0.95);
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 優化搜尋框 */
+        .search-input {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* 優化頁面切換動畫 */
+        .page-transition {
+            animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
     </style>
 </head>
@@ -301,39 +606,86 @@
             }
         }
 
-        // 載入最近聊天
-        async function loadRecentChats() {
-            try {
-                const currentUser = firebase.auth().currentUser;
-                const chatsSnapshot = await db.collection('chats')
-                    .where('participants', 'array-contains', currentUser.uid)
-                    .orderBy('lastMessageTime', 'desc')
-                    .limit(20)
-                    .get();
+        // 修改 renderChats 函數
+        function renderChats(chatDocs) {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            const currentUser = firebase.auth().currentUser;
 
-                const userList = document.getElementById('userList');
-                userList.innerHTML = '';
-
-                for (const doc of chatsSnapshot.docs) {
+            // 使用 async/await 和 Promise.all 正確處理異步操作
+            const processChats = async () => {
+                const promises = chatDocs.map(async (doc) => {
                     const chatData = doc.data();
                     const otherUserId = chatData.participants.find(id => id !== currentUser.uid);
                     
-                    // 獲取用戶資料
-                    if (!userCache.has(otherUserId)) {
-                        const userDoc = await db.collection('users').doc(otherUserId).get();
-                        if (userDoc.exists) {
-                            userCache.set(otherUserId, userDoc.data());
+                    try {
+                        // 獲取用戶資料
+                        if (!userCache.has(otherUserId)) {
+                            const userDoc = await db.collection('users').doc(otherUserId).get();
+                            if (userDoc.exists) {
+                                userCache.set(otherUserId, userDoc.data());
+                            }
                         }
+                        
+                        const userData = userCache.get(otherUserId);
+                        if (userData) {
+                            // 獲取最後一條消息
+                            const lastMessage = {
+                                content: chatData.lastMessage || '',
+                                timestamp: chatData.lastMessageTime,
+                                senderId: chatData.lastMessageSenderId || '',
+                                read: chatData.lastMessageRead || false
+                            };
+                            
+                            renderUserItem(otherUserId, userData, lastMessage);
+                        }
+                    } catch (error) {
+                        console.error('處理聊天資料失敗:', error);
                     }
-                    
-                    const userData = userCache.get(otherUserId);
-                    if (userData) {
-                        renderUserItem(otherUserId, userData, chatData.lastMessage);
-                    }
+                });
+
+                await Promise.all(promises);
+            };
+
+            processChats().catch(error => {
+                console.error('渲染聊天列表失敗:', error);
+                showError('載入失敗，請稍後再試');
+            });
+        }
+
+        // 修改 loadRecentChats 函數
+        async function loadRecentChats() {
+            try {
+                const userList = document.getElementById('userList');
+                userList.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div></div>';
+
+                const currentUser = firebase.auth().currentUser;
+                const chatsQuery = db.collection('chats')
+                    .where('participants', 'array-contains', currentUser.uid)
+                    .orderBy('lastMessageTime', 'desc')
+                    .limit(20);
+
+                // 使用快取的數據先顯示
+                const cachedChats = await chatsQuery.get({ source: 'cache' });
+                if (!cachedChats.empty) {
+                    await renderChats(cachedChats.docs);
                 }
+
+                // 然後獲取最新數據
+                const snapshot = await chatsQuery.get({ source: 'server' });
+                if (snapshot.empty) {
+                    userList.innerHTML = `
+                        <div class="p-4 text-center text-gray-500">
+                            還沒有任何聊天記錄
+                        </div>
+                    `;
+                    return;
+                }
+                await renderChats(snapshot.docs);
+
             } catch (error) {
                 console.error('載入最近聊天失敗:', error);
-                alert('載入失敗，請稍後再試');
+                showError('載入失敗，請稍後再試');
             }
         }
 
@@ -374,38 +726,81 @@
         }
 
         // 渲染用戶列表項目
-        function renderUserItem(userId, userData, lastMessage = null) {
+        function renderUserItem(userId, userData, lastMessage) {
             const div = document.createElement('div');
-            div.className = 'chat-item flex items-center p-4 cursor-pointer';
+            div.className = 'chat-item flex items-center p-4 cursor-pointer hover:bg-gray-50';
             div.onclick = () => startChat(userId, userData.username);
             
             const hasUnread = lastMessage && !lastMessage.read && lastMessage.senderId !== firebase.auth().currentUser.uid;
             
             div.innerHTML = `
-                <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                    ${userData.avatarUrl ? 
-                        `<img src="${userData.avatarUrl}" class="w-full h-full rounded-full object-cover">` :
-                        userData.username[0].toUpperCase()}
+                <div class="flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                        ${userData.avatarUrl ? 
+                            `<img src="${userData.avatarUrl}" class="w-full h-full rounded-full object-cover">` :
+                            userData.username[0].toUpperCase()}
+                    </div>
                 </div>
-                <div class="ml-4 flex-1">
+                <div class="ml-4 flex-1 min-w-0">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-medium text-gray-900">${userData.username}</h3>
+                        <h3 class="text-base font-medium text-gray-900 truncate">${userData.username}</h3>
                         ${lastMessage ? `
                             <span class="text-xs text-gray-500">
-                                ${formatTime(lastMessage.timestamp)}
+                                ${formatMessageTime(lastMessage.timestamp)}
                             </span>
                         ` : ''}
                     </div>
                     ${lastMessage ? `
-                        <p class="text-sm text-gray-500 truncate ${hasUnread ? 'font-semibold' : ''}">
-                            ${lastMessage.content}
-                            ${hasUnread ? '<span class="ml-2 inline-block w-2 h-2 bg-blue-500 rounded-full unread-badge"></span>' : ''}
-                        </p>
+                        <div class="flex items-center mt-1">
+                            <p class="text-sm text-gray-500 truncate ${hasUnread ? 'font-semibold text-gray-900' : ''}">
+                                ${lastMessage.senderId === firebase.auth().currentUser.uid ? 
+                                    `<span class="text-gray-400">你：</span>` : ''}
+                                ${lastMessage.content}
+                            </p>
+                            ${hasUnread ? `
+                                <span class="ml-2 inline-block w-2 h-2 bg-indigo-500 rounded-full unread-badge"></span>
+                            ` : ''}
+                        </div>
                     ` : ''}
                 </div>
             `;
             
             document.getElementById('userList').appendChild(div);
+        }
+
+        // 添加新的時間格式化函數，專門用於聊天列表
+        function formatMessageTime(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = timestamp.toDate();
+            const now = new Date();
+            const diff = now - date;
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            // 今天的消息只顯示時間
+            if (date.toDateString() === now.toDateString()) {
+                return date.toLocaleTimeString('zh-TW', { 
+                    hour: '2-digit', 
+                    minute: '2-digit'
+                });
+            }
+            // 昨天的消息顯示"昨天"
+            else if (date.toDateString() === yesterday.toDateString()) {
+                return '昨天';
+            }
+            // 一週內的消息顯示星期幾
+            else if (diff < 7 * 24 * 60 * 60 * 1000) {
+                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                return `週${weekdays[date.getDay()]}`;
+            }
+            // 更早的消息顯示完整日期
+            else {
+                return date.toLocaleDateString('zh-TW', {
+                    month: 'numeric',
+                    day: 'numeric'
+                });
+            }
         }
 
         // 渲染待處理請求
@@ -470,75 +865,181 @@
         }
 
         // 開始聊天
-        function startChat(adminId, adminName) {
-            currentChatUser = adminId;
-            document.getElementById('chatTitle').textContent = `與 ${adminName} 聊天中`;
-            document.getElementById('chatModal').style.display = 'flex';
-            loadMessages(adminId);
+        async function startChat(userId, username) {
+            try {
+                const currentUser = firebase.auth().currentUser;
+                const chatRoomId = [currentUser.uid, userId].sort().join('_');
+
+                // 檢查是否已有聊天權限
+                const chatRequestDoc = await db.collection('chatRequests')
+                    .doc(chatRoomId)
+                    .get();
+
+                // 如果沒有請求記錄，顯示發送請求對話框
+                if (!chatRequestDoc.exists) {
+                    showChatRequestDialog(userId, username);
+                    return;
+                }
+
+                // 如果請求被拒絕，顯示提示
+                if (chatRequestDoc.data().status === 'rejected') {
+                    showError('對方已拒絕您的聊天請求');
+                    return;
+                }
+
+                // 如果請求待處理，顯示等待提示
+                if (chatRequestDoc.data().status === 'pending') {
+                    showWaitingDialog(username);
+                    return;
+                }
+
+                // 如果請求已接受，開始聊天
+                currentChatUser = userId;
+                document.getElementById('chatTitle').textContent = `與 ${username} 聊天中`;
+                document.getElementById('chatModal').style.display = 'flex';
+                loadMessages(userId);
+                
+            } catch (error) {
+                console.error('開始聊天失敗:', error);
+                showError('開始聊天失敗，請稍後再試');
+            }
+        }
+
+        // 添加發送請求對話框
+        function showChatRequestDialog(userId, username) {
+            const dialog = document.createElement('div');
+            dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            dialog.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 transform transition-all scale-100 opacity-100">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">發送聊天請求</h3>
+                    <p class="text-gray-600 mb-4">您想要與 ${username} 開始聊天嗎？</p>
+                    <textarea id="requestMessage" 
+                              class="w-full p-2 border rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500" 
+                              placeholder="輸入打招呼訊息（選填）" 
+                              rows="3"></textarea>
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="px-4 py-2 text-gray-500 hover:text-gray-700">
+                            取消
+                        </button>
+                        <button onclick="sendChatRequest('${userId}', '${username}')" 
+                                class="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600">
+                            發送請求
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        // 添加等待對話框
+        function showWaitingDialog(username) {
+            const dialog = document.createElement('div');
+            dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            dialog.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                    <div class="text-center">
+                        <div class="typing-indicator-container inline-block mb-4">
+                            <div class="typing-dots">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                        <p class="text-gray-600">等待 ${username} 接受您的聊天請求...</p>
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="mt-4 px-4 py-2 text-gray-500 hover:text-gray-700">
+                            關閉
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        // 發送聊天請求
+        async function sendChatRequest(userId, username) {
+            try {
+                const currentUser = firebase.auth().currentUser;
+                const chatRoomId = [currentUser.uid, userId].sort().join('_');
+                const message = document.getElementById('requestMessage').value.trim();
+
+                await db.collection('chatRequests').doc(chatRoomId).set({
+                    senderId: currentUser.uid,
+                    receiverId: userId,
+                    message: message || '想要與您聊天',
+                    status: 'pending',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // 關閉請求對話框，顯示等待對話框
+                document.querySelector('.fixed').remove();
+                showWaitingDialog(username);
+
+            } catch (error) {
+                console.error('發送請求失敗:', error);
+                showError('發送請求失敗，請稍後再試');
+            }
         }
 
         // 關閉聊天
         function closeChat() {
             document.getElementById('chatModal').style.display = 'none';
+            document.getElementById('chatModal').dispatchEvent(new Event('hidden.chat'));
             currentChatUser = null;
+            
+            // 確保清除自己的打字狀態
+            if (currentChatUser) {
+                const chatRoomId = [firebase.auth().currentUser.uid, currentChatUser].sort().join('_');
+                rtdb.ref(`typing/${chatRoomId}/${firebase.auth().currentUser.uid}`).set(false);
+            }
         }
 
-        // 載入聊天記錄
+        // 優化消息載入
         function loadMessages(userId) {
             const messagesDiv = document.getElementById('chatMessages');
             const currentUser = firebase.auth().currentUser;
-
-            // 創建聊天室ID（確保唯一性）
             const chatRoomId = [currentUser.uid, userId].sort().join('_');
+            
+            // 顯示載入動畫
+            messagesDiv.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div></div>';
 
-            // 檢查是否可以聊天
-            checkChatPermission(chatRoomId).then(canChat => {
-                if (!canChat) {
-                    messagesDiv.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full p-6 text-center">
-                            <div class="w-16 h-16 mb-4">
-                                <svg class="w-full h-full text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                                </svg>
-                            </div>
-                            <p class="text-gray-500 mb-4">等待對方接受您的訊息請求</p>
-                            <button onclick="cancelRequest('${chatRoomId}')" 
-                                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-                                取消請求
-                            </button>
-                        </div>
-                    `;
-                    return;
-                }
+            // 使用批次獲取優化性能
+            const batch = db.batch();
+            const messagesQuery = db.collection('chats')
+                .doc(chatRoomId)
+                .collection('messages')
+                .orderBy('createdAt', 'desc')
+                .limit(50);
 
-                // 監聽新消息
-                db.collection('chats')
-                    .doc(chatRoomId)
-                    .collection('messages')
-                    .orderBy('createdAt', 'desc')
-                    .limit(50)
-                    .onSnapshot((snapshot) => {
-                        messagesDiv.innerHTML = '';
-                        snapshot.docs.reverse().forEach(doc => {
-                            const message = doc.data();
-                            const isOwnMessage = message.userId === currentUser.uid;
-                            
-                            const messageElement = document.createElement('div');
-                            messageElement.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
-                            messageElement.innerHTML = `
-                                <div class="message-bubble ${isOwnMessage ? 'own text-white' : 'other text-gray-800'} 
-                                         rounded-2xl px-4 py-2 shadow-sm">
-                                    <div class="text-sm">${message.content}</div>
-                                    <div class="text-xs ${isOwnMessage ? 'text-white/70' : 'text-gray-500'} mt-1">
-                                        ${formatTime(message.createdAt)}
-                                    </div>
-                                </div>
-                            `;
-                            messagesDiv.appendChild(messageElement);
-                        });
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    });
+            // 使用快取優先策略
+            messagesQuery.get({ source: 'cache' })
+                .then(snapshot => {
+                    if (!snapshot.empty) {
+                        renderMessages(snapshot.docs.reverse());
+                    }
+                    return messagesQuery.get({ source: 'server' });
+                })
+                .then(snapshot => {
+                    renderMessages(snapshot.docs.reverse());
+                });
+        }
+
+        // 優化消息渲染
+        function renderMessages(messages) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const fragment = document.createDocumentFragment();
+            const currentUser = firebase.auth().currentUser;
+
+            messages.forEach(doc => {
+                const message = doc.data();
+                const messageElement = createMessageElement(message, currentUser.uid);
+                fragment.appendChild(messageElement);
             });
+
+            messagesDiv.innerHTML = '';
+            messagesDiv.appendChild(fragment);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         // 檢查聊天權限
@@ -565,7 +1066,7 @@
             }
         }
 
-        // 發送消息
+        // 修改發送消息時更新最後一條消息的邏輯
         async function sendMessage() {
             const messageInput = document.getElementById('messageInput');
             const content = messageInput.value.trim();
@@ -589,10 +1090,12 @@
                     const messagesDiv = document.getElementById('chatMessages');
                     messagesDiv.innerHTML = `
                         <div class="flex flex-col items-center justify-center h-full p-6 text-center">
-                            <div class="typing-indicator mb-4">
-                                <span></span>
-                                <span></span>
-                                <span></span>
+                            <div class="typing-indicator-container">
+                                <div class="typing-dots">
+                                    <div class="typing-dot"></div>
+                                    <div class="typing-dot"></div>
+                                    <div class="typing-dot"></div>
+                                </div>
                             </div>
                             <p class="text-gray-500">等待對方接受您的訊息請求</p>
                         </div>
@@ -617,10 +1120,12 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                // 更新最後一條消息
+                // 更新最後一條消息時包含更多信息
                 await db.collection('chats').doc(chatRoomId).set({
                     lastMessage: content,
                     lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastMessageSenderId: currentUser.uid,
+                    lastMessageRead: false,
                     participants: [currentUser.uid, currentChatUser]
                 }, { merge: true });
 
@@ -871,6 +1376,136 @@
                 console.error('處理請求失敗:', error);
                 alert('處理失敗，請稍後再試');
             }
+        }
+
+        // 修改打字狀態相關的函數
+        function initializeTypingStatus(chatRoomId) {
+            const currentUser = firebase.auth().currentUser;
+            const typingRef = rtdb.ref(`typing/${chatRoomId}`);
+            
+            // 使用 on('value') 來監聽變化
+            typingRef.on('value', (snapshot) => {
+                const typingData = snapshot.val() || {};
+                requestAnimationFrame(() => {  // 使用 requestAnimationFrame 優化渲染
+                    Object.keys(typingData).forEach(userId => {
+                        if (userId !== currentUser.uid) {
+                            if (typingData[userId]) {
+                                showTypingIndicator(userId);
+                            } else {
+                                hideTypingIndicator(userId);
+                            }
+                        }
+                    });
+                });
+            });
+
+            // 返回清理函數
+            return () => typingRef.off('value');
+        }
+
+        // 優化輸入框事件處理
+        let typingTimeout;
+        let lastTypingUpdate = 0;
+        const TYPING_INTERVAL = 500; // 降低到0.5秒，讓反應更快
+
+        document.getElementById('messageInput').addEventListener('input', () => {
+            if (currentChatUser) {
+                const now = Date.now();
+                const currentUser = firebase.auth().currentUser;
+                const chatRoomId = [currentUser.uid, currentChatUser].sort().join('_');
+                
+                // 清除之前的timeout
+                clearTimeout(typingTimeout);
+                
+                // 如果距離上次更新超過50ms，才更新狀態
+                if (now - lastTypingUpdate > 50) {
+                    rtdb.ref(`typing/${chatRoomId}/${currentUser.uid}`).set(true);
+                    lastTypingUpdate = now;
+                }
+                
+                // 0.5秒後清除打字狀態
+                typingTimeout = setTimeout(() => {
+                    rtdb.ref(`typing/${chatRoomId}/${currentUser.uid}`).set(false);
+                }, TYPING_INTERVAL);
+            }
+        });
+
+        // 優化顯示打字指示器的函數
+        function showTypingIndicator(userId) {
+            requestAnimationFrame(() => {
+                let typingDiv = document.getElementById(`typing-${userId}`);
+                if (!typingDiv) {
+                    const messagesDiv = document.getElementById('chatMessages');
+                    typingDiv = document.createElement('div');
+                    typingDiv.className = 'flex justify-start';
+                    typingDiv.id = `typing-${userId}`;
+                    
+                    typingDiv.innerHTML = `
+                        <div class="typing-indicator-container">
+                            <div class="typing-dots">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    messagesDiv.appendChild(typingDiv);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            });
+        }
+
+        // 優化隱藏打字指示器的函數
+        function hideTypingIndicator(userId) {
+            requestAnimationFrame(() => {
+                const typingDiv = document.getElementById(`typing-${userId}`);
+                if (typingDiv) {
+                    typingDiv.remove();
+                }
+            });
+        }
+
+        // 添加 showError 函數
+        function showError(message) {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = `
+                <div class="p-4 text-center">
+                    <div class="inline-flex items-center px-4 py-2 rounded-lg bg-red-50 text-red-500">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        ${message}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 添加 createMessageElement 函數
+        function createMessageElement(message, currentUserId) {
+            const isOwnMessage = message.userId === currentUserId;
+            const messageElement = document.createElement('div');
+            messageElement.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
+            
+            messageElement.innerHTML = `
+                <div class="message-bubble ${isOwnMessage ? 'own text-white' : 'other text-gray-800'} 
+                         rounded-2xl px-4 py-2 shadow-sm">
+                    <div class="text-sm">${message.content}</div>
+                    <div class="text-xs ${isOwnMessage ? 'text-white/70' : 'text-gray-500'} mt-1">
+                        ${formatTime(message.createdAt)}
+                    </div>
+                    ${message.read ? 
+                        `<div class="read-status">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>` : ''}
+                </div>
+            `;
+            
+            return messageElement;
         }
     </script>
 </body>

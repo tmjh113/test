@@ -12,14 +12,23 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="h-full">
-<!-- 導航欄部分 - 移到最上方並美化 -->
+<!-- 導航欄部分 -->
 <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md shadow-lg mx-4 my-2 rounded-2xl">
     <div class="max-w-7xl mx-auto px-4">
         <div class="flex justify-between h-14">
             <div class="flex items-center">
                 <a href="/test/index.html" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600">天中乾淨</a>
             </div>
-            <div class="flex items-center space-x-4">
+            
+            <!-- 漢堡選單按鈕 -->
+            <button id="menuButton" class="md:hidden flex items-center p-2">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+
+            <!-- 桌面版選單 -->
+            <div class="hidden md:flex items-center space-x-4">
                 <a href="/test/index.html" class="px-2 py-1 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">首頁</a>
                 <a href="/test/vote.html" class="px-2 py-1 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">投票</a>
                 <a href="/test/介紹頁面.html" class="px-2 py-1 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">介紹</a>
@@ -35,9 +44,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- 手機版下拉選單 -->
+        <div id="mobileMenu" class="md:hidden hidden">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="/test/index.html" class="block px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">首頁</a>
+                <a href="/test/vote.html" class="block px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">投票</a>
+                <a href="/test/介紹頁面.html" class="block px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-300">介紹</a>
+                <div class="flex flex-col space-y-2 px-3 py-2">
+                    <button onclick="window.location.href='/test/login.html'" 
+                            class="w-full px-3 py-2 text-center text-indigo-600 hover:text-indigo-700 font-medium rounded-lg hover:bg-indigo-50 transition-all duration-300">
+                        登入
+                    </button>
+                    <button onclick="window.location.href='/test/register.html'" 
+                            class="w-full px-3 py-2 text-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 shadow-md hover:shadow-lg font-medium">
+                        註冊
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </nav>
-
 
 <!-- 調整頂部間距以適應新增的搜尋欄 -->
 <div class="pt-28">
@@ -126,5 +153,13 @@
 </div>
 
 <script type="module" src="index.js"></script>
+
+<!-- 添加 JavaScript 來控制選單的顯示/隱藏 -->
+<script>
+    document.getElementById('menuButton').addEventListener('click', function() {
+        const mobileMenu = document.getElementById('mobileMenu');
+        mobileMenu.classList.toggle('hidden');
+    });
+</script>
 </body>
 </html>
