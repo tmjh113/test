@@ -108,6 +108,36 @@
 
             <!-- 成員卡片 -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- 創辦人卡片 (移到最前面) -->
+                <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="leadership-badge">創辦人</div>
+                    <div class="w-32 h-32 mx-auto mt-4 leadership-photo">
+                        <img src="/test/algokyle.jpg" alt="AlgoKyle" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-6">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">AlgoKyle</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
+                                    創辦人 & 全端開發者
+                                </p>
+                                <p class="text-sm text-gray-500">前任執行長</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                天中乾淨的創始者，負責整個平台的設計與開發。以創新的技術理念打造安全且友善的校園社群平台。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">全端開發</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">系統架構</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">UI/UX設計</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 執行長卡片 -->
                 <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
                     <div class="leadership-badge">執行長</div>
@@ -284,30 +314,38 @@
                     </div>
                 </div>
 
-                <!-- 成員 1 (AlgoKyle) -->
-                <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
-                    <div class="leadership-badge">創辦人</div>
-                    <div class="w-32 h-32 mx-auto mt-4 leadership-photo">
-                        <img src="/test/algokyle.jpg" alt="AlgoKyle" class="w-full h-full object-cover">
-                    </div>
+                <!-- 新增行銷總監卡片 -->
+                <div class="member-card bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300">
                     <div class="p-6">
                         <div class="text-center">
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">AlgoKyle</h3>
+                            <div class="relative">
+                                <div class="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="/test/s.jpg" 
+                                         alt="Kyrie" 
+                                         class="w-full h-full object-cover"
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%238B5CF6\'%3E%3Cpath d=\'M12 12a5 5 0 100-10 5 5 0 000 10zm0-10a3 3 0 110 6 3 3 0 010-6zm8 14c0-4.42-3.58-8-8-8s-8 3.58-8 8h16z\'/%3E%3C/svg%3E'">
+                                </div>
+                                <!-- 行銷總監標籤 -->
+                                <div class="absolute -top-2 -right-2 bg-gradient-to-r from-blue-400 to-cyan-500 text-white text-sm px-3 py-1 rounded-full shadow-lg">
+                                    行銷總監
+                                </div>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Kyrie</h3>
                             <div class="space-y-2 mb-4">
-                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
-                                    創辦人 & 全端開發者
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-cyan-600">
+                                    行銷策略專家
                                 </p>
-                                <p class="text-sm text-gray-500">前任執行長</p>
+                                <p class="text-sm text-gray-500">藝術創作者</p>
                             </div>
                             <p class="text-gray-600 mb-4 leading-relaxed">
-                                天中乾淨的創始者，負責整個平台的設計與開發。以創新的技術理念打造安全且友善的校園社群平台。
+                                負責天中乾淨的行銷策略與藝術創作，以獨特的繪畫風格為品牌注入活力。專注於提升品牌知名度與使用者體驗。
                             </p>
                             <div class="text-sm text-gray-500 space-y-1">
                                 <p class="font-medium">專長領域：</p>
                                 <div class="flex flex-wrap justify-center gap-2 mt-2">
-                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">全端開發</span>
-                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">系統架構</span>
-                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">UI/UX設計</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">插畫設計</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">行銷策略</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">品牌推廣</span>
                                 </div>
                             </div>
                         </div>
