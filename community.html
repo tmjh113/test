@@ -28,7 +28,11 @@
         .image-grid {
             display: grid;
             gap: 0.75rem;
-            border-radius: 0.75rem;
+        }
+        
+        .image-grid > div {
+            position: relative;
+            background-color: #f3f4f6;
             overflow: hidden;
         }
         
@@ -52,9 +56,10 @@
         
         /* 圖片懸停效果優化 */
         .post-image {
-            transition: all 0.3s ease;
-            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
             position: relative;
+            z-index: 1;
         }
         
         .post-image:hover {
@@ -192,10 +197,52 @@
         .post-image {
             opacity: 0;
             transition: opacity 0.3s ease;
+            position: relative;
+            z-index: 1;
         }
 
         .post-image.loaded {
             opacity: 1;
+        }
+
+        .post-image.error {
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+
+        .loading-spinner {
+            z-index: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .post-image.loaded + .loading-spinner {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 圖片載入動畫 */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .image-grid > div::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.2) 50%,
+                rgba(255,255,255,0) 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            pointer-events: none;
+        }
+
+        .image-grid > div:has(img.loaded)::before {
+            display: none;
         }
 
         /* 優化滾動效能 */
@@ -420,20 +467,45 @@
             });
         }
 
-        // 優化圖片載入
+        // 修改 loadPostImages 函數
         function loadPostImages(postElement) {
             const images = postElement.querySelectorAll('.post-image');
             images.forEach(img => {
-                const src = img.dataset.src;
-                if (src) {
-                    const tempImage = new Image();
-                    tempImage.onload = () => {
-                        img.src = src;
-                        img.classList.add('loaded');
-                    };
-                    tempImage.src = src;
-                    img.removeAttribute('data-src');
-                }
+                if (!img.dataset.src) return;  // 如果沒有 data-src，跳過
+
+                // 先設置預設的載入中狀態
+                img.style.opacity = '0';
+                
+                // 創建新的 Image 物件來預載圖片
+                const tempImage = new Image();
+                
+                tempImage.onload = () => {
+                    // 圖片載入成功後，更新實際的 img 元素
+                    img.src = img.dataset.src;
+                    img.style.opacity = '1';
+                    
+                    // 隱藏載入動畫
+                    const spinner = img.nextElementSibling;
+                    if (spinner && spinner.classList.contains('loading-spinner')) {
+                        spinner.style.display = 'none';
+                    }
+                };
+                
+                tempImage.onerror = () => {
+                    // 載入失敗時顯示預設圖片
+                    img.src = 'https://i.imgur.com/6VBx3io.png';
+                    img.style.opacity = '0.5';
+                    console.error('圖片載入失敗:', img.dataset.src);
+                    
+                    // 隱藏載入動畫
+                    const spinner = img.nextElementSibling;
+                    if (spinner && spinner.classList.contains('loading-spinner')) {
+                        spinner.style.display = 'none';
+                    }
+                };
+                
+                // 開始載入圖片
+                tempImage.src = img.dataset.src;
             });
         }
 
@@ -449,9 +521,7 @@
             try {
                 if (loadingIndicator) loadingIndicator.classList.remove('hidden');
 
-                // 使用批量查詢
-                const batch = [];
-                const query = db.collection('posts')
+                let query = db.collection('posts')
                     .orderBy('createdAt', 'desc')
                     .limit(postsPerPage);
 
@@ -584,6 +654,12 @@
             } catch (error) {
                 console.error('載入失敗:', error);
                 console.log('Error details:', error);
+                
+                // 添加錯誤提示
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'text-center py-4 text-red-500';
+                errorMessage.textContent = '載入失敗，請稍後再試';
+                container.appendChild(errorMessage);
             } finally {
                 isLoading = false;
                 if (loadingIndicator) loadingIndicator.classList.add('hidden');
@@ -755,7 +831,7 @@
             return userData ? userData.username || '匿名用戶' : '匿名用戶';
         }
 
-        // 渲染貼文內容
+        // 修改 renderPostContent 函數
         function renderPostContent(postData) {
             let content = `<p class="mb-4 text-gray-800">${postData.content || ''}</p>`;
             
@@ -764,11 +840,18 @@
                 content += `
                     <div class="image-grid ${gridClass} rounded-lg overflow-hidden">
                         ${postData.images.map(imageUrl => `
-                            <div class="aspect-square overflow-hidden">
+                            <div class="aspect-square overflow-hidden bg-gray-100 relative">
                                 <img data-src="${imageUrl}" 
                                      class="post-image w-full h-full object-cover cursor-pointer" 
                                      onclick="showImagePreview('${imageUrl}')"
-                                     alt="貼文圖片">
+                                     alt="貼文圖片"
+                                     style="transition: opacity 0.3s ease;">
+                                <div class="loading-spinner absolute inset-0 flex items-center justify-center bg-gray-100">
+                                    <svg class="w-8 h-8 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
                             </div>
                         `).join('')}
                     </div>
@@ -866,6 +949,72 @@
             currentUser = user;
             loadPosts(true);
         });
+
+        // 初始化 observer
+        initializeObserver();
+
+        // 添加圖片預覽功能
+        function showImagePreview(imageUrl) {
+            // 創建模態框
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-50';
+            modal.onclick = () => modal.remove();
+
+            // 創建圖片容器
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'max-w-4xl max-h-[90vh] p-4';
+
+            // 創建圖片元素
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.className = 'max-w-full max-h-[80vh] object-contain';
+            img.onclick = (e) => e.stopPropagation();
+
+            // 添加關閉按鈕
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'absolute top-4 right-4 text-white hover:text-gray-300 transition-colors';
+            closeBtn.innerHTML = `
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            `;
+            closeBtn.onclick = () => modal.remove();
+
+            // 組裝並添加到頁面
+            imgContainer.appendChild(img);
+            modal.appendChild(closeBtn);
+            modal.appendChild(imgContainer);
+            document.body.appendChild(modal);
+
+            // 添加鍵盤事件監聽
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', handleKeyDown);
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        // 添加雙擊點讚功能
+        async function handleDoubleTap(postId) {
+            const likeBtn = document.getElementById(`likeBtn-${postId}`);
+            if (!likeBtn.classList.contains('text-red-500')) {
+                // 創建愛心動畫
+                const heart = document.createElement('div');
+                heart.innerHTML = '❤️';
+                heart.className = 'heart-animation';
+                event.currentTarget.appendChild(heart);
+                
+                // 移除愛心元素
+                setTimeout(() => {
+                    heart.remove();
+                }, 1000);
+                
+                // 觸發點讚
+                await toggleLike(postId);
+            }
+        }
     </script>
 </body>
 </html> 
