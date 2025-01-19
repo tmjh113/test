@@ -235,7 +235,7 @@
         <!-- 功能卡片 -->
         <div class="grid grid-cols-2 gap-6">
             <!-- 搜尋功能 -->
-            <button onclick="window.location.href='search.html'" 
+            <button onclick="window.location.href='/test/search.html'" 
                     class="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center hover-card">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center mb-4 shadow-inner">
                     <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +246,7 @@
             </button>
 
             <!-- 社群貼文 -->
-            <button onclick="window.location.href='community.html'" 
+            <button onclick="window.location.href='/test/community.html'" 
                     class="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center hover-card">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mb-4 shadow-inner">
                     <svg class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +257,7 @@
             </button>
 
             <!-- 聊天室 -->
-            <button onclick="window.location.href='chat.html'" 
+            <button onclick="window.location.href='/test/chat.html'" 
                     class="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center hover-card">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center mb-4 shadow-inner">
                     <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,7 +268,7 @@
             </button>
 
             <!-- 創建貼文 -->
-            <button onclick="window.location.href='create-post.html'" 
+            <button onclick="window.location.href='/test/create-post.html'" 
                     class="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center hover-card">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center mb-4 shadow-inner">
                     <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,7 +279,7 @@
             </button>
 
             <!-- 個人資料 -->
-            <button onclick="window.location.href='profile.html'" 
+            <button onclick="window.location.href='/test/profile.html'" 
                     class="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center hover-card">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-pink-100 to-pink-200 flex items-center justify-center mb-4 shadow-inner">
                     <svg class="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,7 +324,7 @@
             // 監聽用戶登入狀態
             firebase.auth().onAuthStateChanged(async (user) => {
                 if (!user) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/test/login.html';
                     return;
                 }
 
@@ -450,7 +450,7 @@
                 logoutBtn.addEventListener('click', async () => {
                     try {
                         await firebase.auth().signOut();
-                        window.location.href = '/login.html';
+                        window.location.href = '/test/login.html';
                     } catch (error) {
                         console.error('登出錯誤:', error);
                         alert('登出失敗，請稍後再試');
