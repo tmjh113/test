@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用戶資料 - 乾淨天中</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+</head>
+<body class="h-full bg-gray-50">
+    <div class="max-w-xl mx-auto px-4 py-8">
+        <!-- 頂部導航 -->
+        <div class="flex items-center mb-6">
+            <button onclick="history.back()" class="mr-4">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800">用戶資料</h1>
+        </div>
+
+        <!-- 用戶資料卡片 -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <div id="userAvatar" class="w-20 h-20 rounded-full gradient-bg flex items-center justify-center text-white text-2xl font-bold mr-4">
+                        <!-- 頭像將由 JavaScript 插入 -->
+                    </div>
+                    <div>
+                        <h2 id="username" class="text-xl font-bold text-gray-800">載入中...</h2>
+                        <p id="userBio" class="text-gray-600 mt-1">載入中...</p>
+                    </div>
+                </div>
+                <button id="followButton" class="follow-btn px-6 py-2 rounded-lg font-medium hidden">
+                    <!-- 追蹤按鈕將由 JavaScript 控制 -->
+                </button>
+            </div>
+
+            <!-- 統計資訊 -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="text-center">
+                    <div id="postsCount" class="text-xl font-bold text-gray-800">0</div>
+                    <div class="text-sm text-gray-600">貼文</div>
+                </div>
+                <div class="text-center cursor-pointer" onclick="showFollowers()">
+                    <div id="followersCount" class="text-xl font-bold text-gray-800">0</div>
+                    <div class="text-sm text-gray-600">粉絲</div>
+                </div>
+                <div class="text-center cursor-pointer" onclick="showFollowing()">
+                    <div id="followingCount" class="text-xl font-bold text-gray-800">0</div>
+                    <div class="text-sm text-gray-600">追蹤中</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 貼文列表 -->
+        <div id="userPosts" class="space-y-4">
+            <!-- 貼文將由 JavaScript 動態添加 -->
+        </div>
+
+        <!-- 載入中提示 -->
+        <div id="loading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        </div>
+
+        <!-- 無貼文提示 -->
+        <div id="noPosts" class="hidden text-center py-8">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-gray-500">還沒有任何貼文</p>
+        </div>
+    </div>
+
+    <!-- 在 body 最後添加彈出式列表 -->
+    <div id="userListModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+            <!-- 彈出視窗標題 -->
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-800">用戶列表</h3>
+                <button onclick="closeUserList()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- 用戶列表 -->
+            <div id="userList" class="overflow-y-auto flex-1 p-4">
+                <!-- 用戶將由 JavaScript 動態添加 -->
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* 基礎動畫 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* 卡片動畫 */
+        .card-animate {
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        /* 貼文卡片效果 */
+        .post-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 圖片網格效果 */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .image-grid img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .image-grid img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 用戶列表項目動畫 */
+        .user-list-item {
+            animation: slideIn 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        .user-list-item:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        /* 模態框動畫 */
+        .modal-animate {
+            animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 漸變背景 */
+        .gradient-bg {
+            background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+        }
+
+        /* 追蹤按鈕效果 */
+        .follow-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .follow-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .follow-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 載入動畫 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading-pulse {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
+            authDomain: "tmjhpro.firebaseapp.com",
+            projectId: "tmjhpro",
+            storageBucket: "tmjhpro.firebasestorage.app",
+            messagingSenderId: "602310027605",
+            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
+            measurementId: "G-CRPMJJ8KZP"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        let currentUser = null;
+        let targetUserId = null;
+        let targetUserData = null;
+
+        // 獲取 URL 參數中的用戶 ID
+        const urlParams = new URLSearchParams(window.location.search);
+        targetUserId = urlParams.get('uid');
+
+        // 檢查登入狀態並載入資料
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+
+            // 獲取當前用戶的追蹤列表
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            currentUser.following = userDoc.data().following || [];
+
+            // 載入目標用戶資料
+            loadUserProfile();
+        });
+
+        async function loadUserProfile() {
+            try {
+                const userDoc = await db.collection('users').doc(targetUserId).get();
+                if (!userDoc.exists) {
+                    alert('找不到該用戶');
+                    history.back();
+                    return;
+                }
+
+                targetUserData = userDoc.data();
+                
+                // 更新頁面標題
+                document.title = `${targetUserData.username} 的個人資料 - 乾淨天中`;
+
+                // 更新用戶資料
+                document.getElementById('username').textContent = targetUserData.username;
+                document.getElementById('userBio').textContent = targetUserData.bio || '這個用戶很神秘，還沒有介紹自己';
+
+                // 更新頭像
+                const avatarDiv = document.getElementById('userAvatar');
+                if (targetUserData.avatarUrl) {
+                    avatarDiv.innerHTML = `<img src="${targetUserData.avatarUrl}" class="w-full h-full rounded-full object-cover">`;
+                } else {
+                    avatarDiv.innerHTML = `<span>${targetUserData.username[0].toUpperCase()}</span>`;
+                }
+
+                // 更新統計數據
+                document.getElementById('followersCount').textContent = targetUserData.followers?.length || 0;
+                document.getElementById('followingCount').textContent = targetUserData.following?.length || 0;
+
+                // 設置追蹤按鈕
+                const followButton = document.getElementById('followButton');
+                if (currentUser.uid !== targetUserId) {
+                    const isFollowing = currentUser.following.includes(targetUserId);
+                    updateFollowButton(isFollowing);
+                    followButton.classList.remove('hidden');
+                }
+
+                // 載入貼文
+                loadUserPosts();
+
+            } catch (error) {
+                console.error('載入用戶資料失敗:', error);
+                alert('載入用戶資料失敗，請稍後再試');
+            }
+        }
+
+        function updateFollowButton(isFollowing) {
+            const followButton = document.getElementById('followButton');
+            followButton.className = `follow-btn px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                isFollowing ? 
+                'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                'bg-blue-500 text-white hover:bg-blue-600'
+            }`;
+            followButton.innerHTML = `
+                <span class="flex items-center">
+                    ${isFollowing ? 
+                        `<svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>已追蹤` : 
+                        `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>追蹤`
+                    }
+                </span>
+            `;
+            followButton.onclick = () => toggleFollow();
+        }
+
+        async function toggleFollow() {
+            const followButton = document.getElementById('followButton');
+            followButton.disabled = true;
+            followButton.classList.add('opacity-50');
+            
+            try {
+                const isFollowing = currentUser.following.includes(targetUserId);
+                
+                // 更新當前用戶的追蹤列表
+                await db.collection('users').doc(currentUser.uid).update({
+                    following: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(targetUserId) :
+                        firebase.firestore.FieldValue.arrayUnion(targetUserId)
+                });
+
+                // 更新目標用戶的粉絲列表
+                await db.collection('users').doc(targetUserId).update({
+                    followers: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(currentUser.uid) :
+                        firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 更新本地狀態
+                if (isFollowing) {
+                    currentUser.following = currentUser.following.filter(id => id !== targetUserId);
+                } else {
+                    currentUser.following.push(targetUserId);
+                }
+
+                // 更新按鈕狀態
+                updateFollowButton(!isFollowing);
+                
+                // 更新粉絲數量
+                const followersCount = document.getElementById('followersCount');
+                followersCount.textContent = (parseInt(followersCount.textContent) + (isFollowing ? -1 : 1)).toString();
+
+            } catch (error) {
+                console.error('追蹤操作失敗:', error);
+                alert('操作失敗，請稍後再試');
+            } finally {
+                followButton.disabled = false;
+                followButton.classList.remove('opacity-50');
+            }
+        }
+
+        async function loadUserPosts() {
+            const loading = document.getElementById('loading');
+            const noPosts = document.getElementById('noPosts');
+            const userPosts = document.getElementById('userPosts');
+
+            try {
+                const postsSnapshot = await db.collection('posts')
+                    .where('userId', '==', targetUserId)
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                loading.classList.add('hidden');
+                
+                if (postsSnapshot.empty) {
+                    noPosts.classList.remove('hidden');
+                    return;
+                }
+
+                // 更新貼文數量
+                document.getElementById('postsCount').textContent = postsSnapshot.size;
+
+                postsSnapshot.forEach(doc => {
+                    const postData = doc.data();
+                    const postElement = createPostElement(doc.id, postData);
+                    userPosts.appendChild(postElement);
+                });
+
+            } catch (error) {
+                console.error('載入貼文失敗:', error);
+                loading.classList.add('hidden');
+                userPosts.innerHTML = '<div class="text-red-500 text-center">載入貼文失敗，請稍後再試</div>';
+            }
+        }
+
+        function createPostElement(postId, postData) {
+            const div = document.createElement('div');
+            div.className = 'post-card bg-white rounded-lg shadow p-4 mb-4 card-animate';
+            
+            let imagesHtml = '';
+            if (postData.imageUrls && postData.imageUrls.length > 0) {
+                imagesHtml = `
+                    <div class="image-grid">
+                        ${postData.imageUrls.map(url => `
+                            <img src="${url}" 
+                                 alt="貼文圖片" 
+                                 class="cursor-pointer"
+                                 onclick="showImagePreview('${url}')"
+                                 loading="lazy">
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center overflow-hidden mr-3">
+                            ${targetUserData.avatarUrl ? 
+                                `<img src="${targetUserData.avatarUrl}" class="w-full h-full object-cover">` :
+                                `<span class="text-white font-bold">${targetUserData.username[0].toUpperCase()}</span>`
+                            }
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800">${targetUserData.username}</span>
+                            <div class="text-sm text-gray-500">${formatDate(postData.createdAt)}</div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-gray-800 mb-3">${postData.content}</p>
+                ${imagesHtml}
+            `;
+            return div;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '';
+            const date = timestamp.toDate();
+            return new Intl.DateTimeFormat('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        async function showFollowers() {
+            const modal = document.getElementById('userListModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const userList = document.getElementById('userList');
+            
+            modalTitle.textContent = '粉絲列表';
+            userList.innerHTML = '<div class="text-center py-4">載入中...</div>';
+            modal.classList.remove('hidden');
+            
+            try {
+                if (!targetUserData.followers || targetUserData.followers.length === 0) {
+                    userList.innerHTML = '<div class="text-center py-4 text-gray-500">還沒有粉絲</div>';
+                    return;
+                }
+                
+                // 獲取所有粉絲的資料
+                const followersPromises = targetUserData.followers.map(uid => 
+                    db.collection('users').doc(uid).get()
+                );
+                
+                const followersSnapshots = await Promise.all(followersPromises);
+                const followersData = followersSnapshots.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // 顯示粉絲列表
+                userList.innerHTML = '';
+                followersData.forEach(userData => {
+                    const isFollowing = currentUser.following.includes(userData.id);
+                    const userElement = createUserListItem(userData, isFollowing);
+                    userList.appendChild(userElement);
+                });
+                
+            } catch (error) {
+                console.error('載入粉絲列表失敗:', error);
+                userList.innerHTML = '<div class="text-center py-4 text-red-500">載入失敗，請稍後再試</div>';
+            }
+        }
+
+        async function showFollowing() {
+            const modal = document.getElementById('userListModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const userList = document.getElementById('userList');
+            
+            modalTitle.textContent = '追蹤中';
+            userList.innerHTML = '<div class="text-center py-4">載入中...</div>';
+            modal.classList.remove('hidden');
+            
+            try {
+                if (!targetUserData.following || targetUserData.following.length === 0) {
+                    userList.innerHTML = '<div class="text-center py-4 text-gray-500">還沒有追蹤任何人</div>';
+                    return;
+                }
+                
+                // 獲取所有追蹤者的資料
+                const followingPromises = targetUserData.following.map(uid => 
+                    db.collection('users').doc(uid).get()
+                );
+                
+                const followingSnapshots = await Promise.all(followingPromises);
+                const followingData = followingSnapshots.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // 顯示追蹤列表
+                userList.innerHTML = '';
+                followingData.forEach(userData => {
+                    const isFollowing = currentUser.following.includes(userData.id);
+                    const userElement = createUserListItem(userData, isFollowing);
+                    userList.appendChild(userElement);
+                });
+                
+            } catch (error) {
+                console.error('載入追蹤列表失敗:', error);
+                userList.innerHTML = '<div class="text-center py-4 text-red-500">載入失敗，請稍後再試</div>';
+            }
+        }
+
+        function createUserListItem(userData, isFollowing) {
+            const div = document.createElement('div');
+            div.className = 'user-list-item flex items-center justify-between p-3 rounded-lg';
+            
+            // 決定是否顯示追蹤按鈕
+            const showFollowButton = userData.id !== currentUser.uid;
+            const profileLink = userData.id === currentUser.uid ? 'profile.html' : `user-profile.html?uid=${userData.id}`;
+            
+            div.innerHTML = `
+                <div class="flex items-center cursor-pointer" onclick="window.location.href='${profileLink}'">
+                    <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center overflow-hidden mr-3">
+                        ${userData.avatarUrl ? 
+                            `<img src="${userData.avatarUrl}" class="w-full h-full object-cover">` :
+                            `<span class="text-white font-bold text-lg">${userData.username[0].toUpperCase()}</span>`
+                        }
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800 flex items-center">
+                            ${userData.username}
+                            ${userData.id === currentUser.uid ? 
+                                `<span class="ml-2 text-sm text-blue-500">(我)</span>` : ''}
+                        </h4>
+                        <p class="text-sm text-gray-500">${userData.bio ? 
+                            userData.bio.substring(0, 30) + (userData.bio.length > 30 ? '...' : '') : 
+                            '沒有介紹'}</p>
+                    </div>
+                </div>
+                ${showFollowButton ? `
+                    <button onclick="event.stopPropagation(); toggleFollowFromList('${userData.id}', this)" 
+                            class="follow-btn px-4 py-2 rounded-lg text-sm font-medium ${
+                                isFollowing ? 
+                                'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                                'bg-blue-500 text-white hover:bg-blue-600'
+                            }">
+                        <span class="flex items-center">
+                            ${isFollowing ? 
+                                `<svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>已追蹤` : 
+                                `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>追蹤`
+                            }
+                        </span>
+                    </button>
+                ` : ''}
+            `;
+            
+            return div;
+        }
+
+        async function toggleFollowFromList(targetUid, button) {
+            button.disabled = true;
+            button.classList.add('opacity-50');
+            
+            try {
+                const isFollowing = currentUser.following.includes(targetUid);
+                
+                // 更新當前用戶的追蹤列表
+                await db.collection('users').doc(currentUser.uid).update({
+                    following: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(targetUid) :
+                        firebase.firestore.FieldValue.arrayUnion(targetUid)
+                });
+
+                // 更新目標用戶的粉絲列表
+                await db.collection('users').doc(targetUid).update({
+                    followers: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(currentUser.uid) :
+                        firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 更新本地狀態
+                if (isFollowing) {
+                    currentUser.following = currentUser.following.filter(id => id !== targetUid);
+                } else {
+                    currentUser.following.push(targetUid);
+                }
+
+                // 更新按鈕樣式
+                button.className = `follow-btn px-4 py-2 rounded-lg text-sm font-medium ${
+                    !isFollowing ? 
+                    'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                    'bg-blue-500 text-white hover:bg-blue-600'
+                }`;
+                button.textContent = !isFollowing ? '取消追蹤' : '追蹤';
+                
+            } catch (error) {
+                console.error('追蹤操作失敗:', error);
+                alert('操作失敗，請稍後再試');
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-50');
+            }
+        }
+
+        function closeUserList() {
+            document.getElementById('userListModal').classList.add('hidden');
+        }
+
+        // 點擊彈出視窗外部關閉
+        document.getElementById('userListModal').addEventListener('click', (e) => {
+            if (e.target.id === 'userListModal') {
+                closeUserList();
+            }
+        });
+
+        // 圖片預覽功能
+        function showImagePreview(imageUrl) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50';
+            modal.onclick = () => modal.remove();
+            
+            modal.innerHTML = `
+                <div class="max-w-4xl max-h-[90vh] p-2 modal-animate">
+                    <img src="${imageUrl}" 
+                         class="max-w-full max-h-[85vh] object-contain rounded-lg" 
+                         onclick="event.stopPropagation()">
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+    </script>
+</body>
+</html> 

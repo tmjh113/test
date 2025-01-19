@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社群貼文 - 乾淨天中</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* 貼文動畫優化 */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .post-animation {
+            opacity: 0;
+            animation: fade-in 0.5s ease-out forwards;
+        }
+        
+        /* 圖片網格優化 */
+        .image-grid {
+            display: grid;
+            gap: 0.75rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        
+        .image-grid.grid-1 { 
+            grid-template-columns: 1fr; 
+            max-height: 500px;
+        }
+        .image-grid.grid-2 { 
+            grid-template-columns: repeat(2, 1fr);
+            max-height: 400px;
+        }
+        .image-grid.grid-3 { 
+            grid-template-columns: repeat(3, 1fr);
+            max-height: 300px;
+        }
+        .image-grid.grid-4 { 
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            max-height: 400px;
+        }
+        
+        /* 圖片懸停效果優化 */
+        .post-image {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .post-image:hover {
+            transform: scale(1.02);
+            filter: brightness(1.1);
+        }
+
+        /* 加載動畫 */
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+        
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* 點讚動畫 */
+        @keyframes like-animation {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); color: rgb(239, 68, 68); }
+            100% { transform: scale(1); }
+        }
+        
+        .like-animation {
+            animation: like-animation 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 無限滾動加載動畫 */
+        @keyframes loading-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .loading-bounce {
+            animation: loading-bounce 0.6s infinite;
+        }
+
+        /* 貼文淡入動畫 */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .post-fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        /* 頭像懸停效果 */
+        .avatar-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .avatar-hover:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        /* 評論區塊優化 */
+        .comment-section {
+            background: linear-gradient(to right, #f9fafb, #f3f4f6);
+            border-left: 3px solid #6366f1;
+        }
+
+        /* 互動按鈕優化 */
+        .interaction-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .interaction-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* 加載更多按鈕動畫 */
+        .load-more-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
+        /* Instagram 風格的設計 */
+        .instagram-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .instagram-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 骨架屏動畫 */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg,
+                #f0f0f0 25%,
+                #e0e0e0 50%,
+                #f0f0f0 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* 圖片預加載 */
+        .post-image {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .post-image.loaded {
+            opacity: 1;
+        }
+
+        /* 優化滾動效能 */
+        .posts-container {
+            will-change: transform;
+            contain: content;
+        }
+
+        /* 雙擊點讚效果 */
+        .double-tap-area {
+            position: relative;
+            cursor: pointer;
+        }
+
+        @keyframes heart-burst {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        .heart-animation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 72px;
+            pointer-events: none;
+            animation: heart-burst 0.8s ease-out forwards;
+        }
+
+        /* 評論動畫效果 */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .comment-new {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        /* 評論輸入框美化 */
+        .comment-input {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .comment-input:focus {
+            background: #fff;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+
+        /* 發送按鈕效果 */
+        .send-button {
+            transition: all 0.3s ease;
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .send-button:not(:disabled):hover {
+            transform: translateY(-1px);
+        }
+
+        /* 評論區域美化 */
+        .comments-container {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f7fafc;
+        }
+
+        .comments-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .comments-container::-webkit-scrollbar-track {
+            background: #f7fafc;
+        }
+
+        .comments-container::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-full bg-gradient-to-br from-gray-50 to-gray-100">
+    <!-- 頂部導航 -->
+    <nav class="bg-white shadow-md sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div class="max-w-5xl mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <button onclick="window.location.href='home.html'" 
+                        class="text-gray-600 hover:text-gray-900 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                </button>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-transparent bg-clip-text">社群貼文</h1>
+                <button onclick="window.location.href='create-post.html'" 
+                        class="text-indigo-600 hover:text-indigo-700 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區域 -->
+    <main class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- 加載中提示 -->
+        <div id="loadingIndicator" class="text-center py-8 hidden">
+            <div class="inline-block p-4 bg-white rounded-lg shadow-md loading-pulse">
+                <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- 貼文列表容器 -->
+        <div id="postsContainer" class="space-y-6"></div>
+        
+        <!-- 加載更多按鈕 -->
+        <div class="text-center mt-8">
+            <button id="loadMoreBtn" onclick="loadMorePosts()" 
+                    class="px-6 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 shadow-sm hover:shadow-md">
+                載入更多
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
+            authDomain: "tmjhpro.firebaseapp.com",
+            projectId: "tmjhpro",
+            storageBucket: "tmjhpro.firebasestorage.app",
+            messagingSenderId: "602310027605",
+            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
+            measurementId: "G-CRPMJJ8KZP"
+        };
+        
+        // 初始化 Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const db = firebase.firestore();
+        let currentUser = null;
+        let lastDoc = null;
+        let hasMore = true;
+        let isLoading = false;
+        const postsPerPage = 5;
+
+        // 格式化時間函數優化
+        function formatTime(timestamp) {
+            if (!timestamp) return '剛剛';
+            
+            let date;
+            if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+            } else if (timestamp.toDate) {
+                date = timestamp.toDate();
+            } else if (timestamp instanceof Date) {
+                date = timestamp;
+            } else {
+                console.log('Invalid timestamp:', timestamp);
+                return '剛剛';
+            }
+
+            if (isNaN(date.getTime())) {
+                console.log('Invalid date:', date);
+                return '剛剛';
+            }
+
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return '剛剛';
+            if (diff < 3600000) return `${Math.floor(diff/60000)}分鐘前`;
+            if (diff < 86400000) return `${Math.floor(diff/3600000)}小時前`;
+            if (diff < 604800000) return `${Math.floor(diff/86400000)}天前`;
+            
+            return date.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 優化載入策略
+        const postCache = new Map();
+        const userCache = new Map();
+        let observer;
+
+        // 初始化 Intersection Observer
+        function initializeObserver() {
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const postElement = entry.target;
+                        loadPostImages(postElement);
+                        observer.unobserve(postElement);
+                    }
+                });
+            }, {
+                rootMargin: '50px 0px',
+                threshold: 0.1
+            });
+        }
+
+        // 優化圖片載入
+        function loadPostImages(postElement) {
+            const images = postElement.querySelectorAll('.post-image');
+            images.forEach(img => {
+                const src = img.dataset.src;
+                if (src) {
+                    const tempImage = new Image();
+                    tempImage.onload = () => {
+                        img.src = src;
+                        img.classList.add('loaded');
+                    };
+                    tempImage.src = src;
+                    img.removeAttribute('data-src');
+                }
+            });
+        }
+
+        // 優化貼文載入
+        async function loadPosts(initial = false) {
+            if (isLoading || (!hasMore && !initial)) return;
+            isLoading = true;
+
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const container = document.getElementById('postsContainer');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+            try {
+                if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+
+                // 使用批量查詢
+                const batch = [];
+                const query = db.collection('posts')
+                    .orderBy('createdAt', 'desc')
+                    .limit(postsPerPage);
+
+                if (!initial && lastDoc) {
+                    query = query.startAfter(lastDoc);
+                }
+
+                const snapshot = await query.get();
+                
+                // 收集所有需要的用戶ID
+                const userIds = new Set();
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    userIds.add(data.userId);
+                    if (data.comments) {
+                        data.comments.forEach(comment => userIds.add(comment.userId));
+                    }
+                });
+
+                // 批量獲取用戶數據
+                const userPromises = [...userIds].map(async userId => {
+                    if (!userCache.has(userId)) {
+                        const userDoc = await db.collection('users').doc(userId).get();
+                        if (userDoc.exists) {
+                            userCache.set(userId, userDoc.data());
+                        }
+                    }
+                    return userCache.get(userId);
+                });
+
+                await Promise.all(userPromises);
+
+                if (initial) {
+                    container.innerHTML = '';
+                }
+
+                if (snapshot.empty) {
+                    hasMore = false;
+                    if (initial) {
+                        container.innerHTML = `
+                            <div class="text-center py-12">
+                                <div class="text-gray-500 text-lg">目前還沒有任何貼文</div>
+                                <button onclick="window.location.href='create-post.html'" 
+                                        class="mt-4 px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors">
+                                    發布第一篇貼文
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        const endMessage = document.createElement('div');
+                        endMessage.className = 'text-center py-8 text-gray-500 post-fade-in';
+                        endMessage.textContent = '沒有更多貼文了';
+                        container.appendChild(endMessage);
+                    }
+                    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+                    return;
+                }
+
+                lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+                for (const doc of snapshot.docs) {
+                    const postData = doc.data();
+                    
+                    // 獲取發文者資料
+                    let userData = {};
+                    if (postData.userId) {
+                        const userDoc = await db.collection('users').doc(postData.userId).get();
+                        if (userDoc.exists) {
+                            userData = userDoc.data();
+                        }
+                    }
+
+                    // 確保用戶名稱
+                    const displayName = userData.displayName || postData.username || '匿名用戶';
+
+                    // 獲取評論用戶資料
+                    const commentsWithUserData = await Promise.all((postData.comments || []).map(async comment => {
+                        let commentUserData = {};
+                        if (comment.userId) {
+                            const commentUserDoc = await db.collection('users').doc(comment.userId).get();
+                            if (commentUserDoc.exists) {
+                                commentUserData = commentUserDoc.data();
+                            }
+                        }
+                        return {
+                            ...comment,
+                            userData: commentUserData,
+                            displayName: commentUserData.displayName || comment.username || '匿名用戶'
+                        };
+                    }));
+
+                    const postElement = document.createElement('article');
+                    postElement.className = 'instagram-card mb-6';
+                    
+                    const isLiked = postData.likedBy?.includes(currentUser.uid);
+
+                    postElement.innerHTML = `
+                        <div class="p-4">
+                            <!-- 用戶信息 -->
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 rounded-full overflow-hidden">
+                                    <img src="${userData.photoURL || getUserAvatar(postData.userId)}" 
+                                         class="w-full h-full object-cover"
+                                         loading="lazy"
+                                         alt="${displayName}">
+                                </div>
+                                <div class="ml-3">
+                                    <div class="font-semibold">${displayName}</div>
+                                    <div class="text-xs text-gray-500">${formatTime(postData.createdAt)}</div>
+                                </div>
+                            </div>
+
+                            <!-- 貼文內容 -->
+                            <div class="double-tap-area" ondblclick="handleDoubleTap('${doc.id}')">
+                                ${renderPostContent(postData)}
+                            </div>
+
+                            <!-- 互動區域 -->
+                            ${renderInteractions(doc.id, postData)}
+
+                            <!-- 評論區域 -->
+                            ${renderComments(doc.id, commentsWithUserData)}
+                        </div>
+                    `;
+
+                    container.appendChild(postElement);
+                    observer.observe(postElement);
+                }
+
+            } catch (error) {
+                console.error('載入失敗:', error);
+                console.log('Error details:', error);
+            } finally {
+                isLoading = false;
+                if (loadingIndicator) loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // 切換點讚狀態
+        async function toggleLike(postId) {
+            if (!currentUser) {
+                alert('請先登入');
+                return;
+            }
+
+            const likeBtn = document.getElementById(`likeBtn-${postId}`);
+            const likeCount = document.getElementById(`likeCount-${postId}`);
+            
+            try {
+                const postRef = db.collection('posts').doc(postId);
+                const doc = await postRef.get();
+                const postData = doc.data();
+                const likedBy = postData.likedBy || [];
+                const isLiked = likedBy.includes(currentUser.uid);
+
+                // 添加動畫
+                likeBtn.classList.add('like-animation');
+
+                if (isLiked) {
+                    // 取消點讚
+                    await postRef.update({
+                        likes: firebase.firestore.FieldValue.increment(-1),
+                        likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+                    });
+                    likeCount.textContent = (postData.likes || 1) - 1;
+                    likeBtn.classList.remove('text-red-500');
+                } else {
+                    // 添加點讚
+                    await postRef.update({
+                        likes: firebase.firestore.FieldValue.increment(1),
+                        likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                    });
+                    likeCount.textContent = (postData.likes || 0) + 1;
+                    likeBtn.classList.add('text-red-500');
+                }
+
+                // 移除動畫
+                setTimeout(() => {
+                    likeBtn.classList.remove('like-animation');
+                }, 400);
+
+            } catch (error) {
+                console.error('操作失敗:', error);
+                alert('操作失敗，請稍後再試');
+            }
+        }
+
+        // 切換評論區域顯示
+        function toggleComments(postId) {
+            const commentsSection = document.getElementById(`comments-${postId}`);
+            commentsSection.classList.toggle('hidden');
+        }
+
+        // 添加評論
+        async function addComment(postId) {
+            if (!currentUser) {
+                alert('請先登入');
+                return;
+            }
+
+            const input = document.getElementById(`commentInput-${postId}`);
+            const sendButton = document.querySelector(`#commentInput-${postId} + button`);
+            const content = input.value.trim();
+
+            if (!content) {
+                alert('請輸入評論內容');
+                return;
+            }
+
+            try {
+                sendButton.disabled = true;
+                input.disabled = true;
+
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                const userData = userDoc.exists ? userDoc.data() : {};
+                const displayName = userData.displayName || currentUser.displayName || '匿名用戶';
+
+                const comment = {
+                    content,
+                    userId: currentUser.uid,
+                    username: displayName,
+                    userPhotoURL: userData.photoURL || currentUser.photoURL || '',
+                    createdAt: firebase.firestore.Timestamp.now()
+                };
+
+                // 更新 Firestore
+                const postRef = db.collection('posts').doc(postId);
+                await postRef.update({
+                    comments: firebase.firestore.FieldValue.arrayUnion(comment)
+                });
+
+                // 即時更新UI
+                const commentsContainer = document.querySelector(`#comments-${postId} .space-y-2`);
+                const commentElement = document.createElement('div');
+                commentElement.className = 'flex items-start space-x-2 comment-new';
+                commentElement.innerHTML = `
+                    <img src="${getUserAvatar(comment.userId)}" 
+                         class="w-8 h-8 rounded-full"
+                         alt="${comment.username}">
+                    <div class="flex-1">
+                        <p class="text-sm">
+                            <span class="font-semibold">${comment.username}</span>
+                            ${comment.content}
+                        </p>
+                        <p class="text-xs text-gray-500">剛剛</p>
+                    </div>
+                `;
+
+                // 添加新評論到頂部
+                commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
+
+                // 更新評論計數
+                const commentCount = document.querySelector(`#comments-${postId} + button span`);
+                const currentCount = parseInt(commentCount.textContent) || 0;
+                commentCount.textContent = currentCount + 1;
+
+                // 清空輸入框
+                input.value = '';
+
+                // 顯示評論區域（如果隱藏的話）
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                if (commentsSection.classList.contains('hidden')) {
+                    commentsSection.classList.remove('hidden');
+                }
+
+                // 滾動到新評論
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            } catch (error) {
+                console.error('評論失敗:', error);
+                alert('評論失敗，請稍後再試');
+            } finally {
+                sendButton.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        // 無限滾動
+        window.addEventListener('scroll', () => {
+            if (isLoading || !hasMore) return;
+            
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const documentHeight = document.documentElement.offsetHeight;
+            
+            if (scrollPosition >= documentHeight - 1000) {
+                loadPosts(false);
+            }
+        });
+
+        // 獲取用戶頭像
+        function getUserAvatar(userId) {
+            const userData = userCache.get(userId);
+            if (userData && userData.avatarUrl) {
+                return userData.avatarUrl;
+            }
+            // 返回預設頭像
+            return 'https://i.imgur.com/6VBx3io.png';
+        }
+
+        // 獲取用戶名稱
+        function getUserName(userId) {
+            const userData = userCache.get(userId);
+            return userData ? userData.username || '匿名用戶' : '匿名用戶';
+        }
+
+        // 渲染貼文內容
+        function renderPostContent(postData) {
+            let content = `<p class="mb-4 text-gray-800">${postData.content || ''}</p>`;
+            
+            if (postData.images && postData.images.length > 0) {
+                const gridClass = getGridClass(postData.images.length);
+                content += `
+                    <div class="image-grid ${gridClass} rounded-lg overflow-hidden">
+                        ${postData.images.map(imageUrl => `
+                            <div class="aspect-square overflow-hidden">
+                                <img data-src="${imageUrl}" 
+                                     class="post-image w-full h-full object-cover cursor-pointer" 
+                                     onclick="showImagePreview('${imageUrl}')"
+                                     alt="貼文圖片">
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            return content;
+        }
+
+        // 根據圖片數量決定網格類型
+        function getGridClass(imageCount) {
+            switch (imageCount) {
+                case 1: return 'grid-1';
+                case 2: return 'grid-2';
+                case 3: return 'grid-3';
+                case 4: return 'grid-4';
+                default: return 'grid-3';
+            }
+        }
+
+        // 渲染互動區域
+        function renderInteractions(postId, postData) {
+            const isLiked = postData.likedBy?.includes(currentUser?.uid);
+            return `
+                <div class="flex items-center mt-4 space-x-4">
+                    <button onclick="toggleLike('${postId}')" 
+                            id="likeBtn-${postId}"
+                            class="flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500'} transition-colors">
+                        <svg class="w-6 h-6" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <span id="likeCount-${postId}">${postData.likes || 0}</span>
+                    </button>
+                    <button onclick="toggleComments('${postId}')" 
+                            class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        <span>${(postData.comments || []).length}</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // 渲染評論區域
+        function renderComments(postId, comments) {
+            return `
+                <div id="comments-${postId}" class="mt-4 hidden">
+                    <div class="comments-container">
+                        <div class="space-y-2">
+                            ${comments.map(comment => `
+                                <div class="flex items-start space-x-2">
+                                    <img src="${getUserAvatar(comment.userId)}" 
+                                         class="w-8 h-8 rounded-full"
+                                         alt="${comment.username}">
+                                    <div class="flex-1 bg-gray-50 rounded-lg p-2">
+                                        <p class="text-sm">
+                                            <span class="font-semibold hover:text-blue-500 cursor-pointer">${comment.username}</span>
+                                            ${comment.content}
+                                        </p>
+                                        <p class="text-xs text-gray-500">${formatTime(comment.createdAt)}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="mt-4 flex space-x-2">
+                        <input type="text" 
+                               id="commentInput-${postId}"
+                               class="comment-input flex-1 px-4 py-2 rounded-full focus:outline-none"
+                               placeholder="添加評論..."
+                               onkeypress="if(event.key === 'Enter') addComment('${postId}')">
+                        <button onclick="addComment('${postId}')"
+                                class="send-button px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
+                            發送
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeObserver();
+            firebase.auth().onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    loadPosts(true);
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

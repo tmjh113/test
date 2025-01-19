@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜尋 - 乾淨天中</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="h-full bg-gray-50">
+    <div class="max-w-xl mx-auto px-4 py-8">
+        <!-- 頂部導航 -->
+        <div class="flex items-center mb-6">
+            <button onclick="window.location.href='home.html'" class="mr-4">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800">搜尋</h1>
+        </div>
+
+        <!-- 搜尋框 -->
+        <div class="mb-6">
+            <div class="relative">
+                <input type="text" id="searchInput" 
+                       class="w-full px-4 py-3 pl-12 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                       placeholder="搜尋用戶或貼文...">
+                <svg class="w-6 h-6 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- 搜尋結果 -->
+        <div id="searchResults" class="space-y-4">
+            <!-- 結果將通過 JavaScript 動態添加 -->
+        </div>
+
+        <!-- 無結果提示 -->
+        <div id="noResults" class="hidden text-center py-8">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-gray-500">沒有找到相關結果</p>
+        </div>
+    </div>
+
+    <style>
+        /* 追蹤按鈕動畫 */
+        .follow-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .follow-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* 用戶卡片懸浮效果 */
+        .user-card {
+            transition: all 0.3s ease;
+        }
+        
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* 載入動畫 */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* 漸變背景 */
+        .gradient-bg {
+            background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+        }
+    </style>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
+            authDomain: "tmjhpro.firebaseapp.com",
+            projectId: "tmjhpro",
+            storageBucket: "tmjhpro.firebasestorage.app",
+            messagingSenderId: "602310027605",
+            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
+            measurementId: "G-CRPMJJ8KZP"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 搜尋功能
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const noResults = document.getElementById('noResults');
+        
+        let searchTimeout;
+        let currentUser = null;
+        let lastQuery = '';
+        let searchCache = new Map();
+        const CACHE_DURATION = 5 * 60 * 1000; // 5分鐘快取
+
+        // 檢查用戶登入狀態
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            // 獲取當前用戶的追蹤列表
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            currentUser.following = userDoc.data().following || [];
+        });
+
+        // 優化的搜尋功能
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = e.target.value;
+                if (query === lastQuery) return; // 避免重複搜尋
+                lastQuery = query;
+                performSearch(query);
+            }, 300); // 減少延遲時間
+        });
+
+        async function performSearch(query) {
+            if (!query.trim()) {
+                searchResults.innerHTML = '';
+                noResults.classList.add('hidden');
+                return;
+            }
+
+            // 檢查快取
+            const cacheKey = query.toLowerCase();
+            const cachedResult = searchCache.get(cacheKey);
+            if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_DURATION)) {
+                displayResults(cachedResult.results);
+                return;
+            }
+
+            try {
+                const [usersSnapshot, postsSnapshot] = await Promise.all([
+                    db.collection('users')
+                        .where('username', '>=', query)
+                        .where('username', '<=', query + '\uf8ff')
+                        .limit(10)
+                        .get(),
+                    
+                    db.collection('posts')
+                        .where('content', '>=', query)
+                        .where('content', '<=', query + '\uf8ff')
+                        .orderBy('content')
+                        .orderBy('createdAt', 'desc')
+                        .limit(10)
+                        .get()
+                ]);
+
+                const results = {
+                    users: usersSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    })),
+                    posts: postsSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }))
+                };
+
+                // 儲存到快取
+                searchCache.set(cacheKey, {
+                    timestamp: Date.now(),
+                    results: results
+                });
+
+                displayResults(results);
+
+            } catch (error) {
+                console.error('搜尋錯誤:', error);
+                searchResults.innerHTML = '<div class="text-red-500 text-center">搜尋時發生錯誤，請稍後再試</div>';
+            }
+        }
+
+        function displayResults(results) {
+            searchResults.innerHTML = '';
+            let hasResults = false;
+
+            // 顯示用戶結果
+            if (results.users.length > 0) {
+                const usersSection = document.createElement('div');
+                usersSection.innerHTML = `
+                    <div class="flex items-center mb-4">
+                        <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <h2 class="text-lg font-semibold text-gray-800">用戶</h2>
+                    </div>
+                `;
+                
+                results.users.forEach(userData => {
+                    const userElement = createUserResultElement(userData);
+                    if (userElement) {
+                        hasResults = true;
+                        usersSection.appendChild(userElement);
+                    }
+                });
+                
+                if (hasResults) {
+                    searchResults.appendChild(usersSection);
+                }
+            }
+
+            // 顯示貼文結果
+            if (results.posts.length > 0) {
+                const postsSection = document.createElement('div');
+                postsSection.innerHTML = '<h2 class="text-lg font-semibold mt-6 mb-3">貼文</h2>';
+                results.posts.forEach(postData => {
+                    hasResults = true;
+                    postsSection.appendChild(createPostResultElement(postData));
+                });
+                searchResults.appendChild(postsSection);
+            }
+
+            noResults.classList.toggle('hidden', hasResults);
+        }
+
+        function createUserResultElement(userData) {
+            if (userData.id === currentUser.uid) return null; // 不顯示自己
+            
+            const isFollowing = currentUser.following.includes(userData.id);
+            const div = document.createElement('div');
+            div.className = 'user-card bg-white rounded-lg shadow p-4 flex items-center justify-between mb-3';
+            
+            // 創建用戶資訊部分
+            const userInfoDiv = document.createElement('div');
+            userInfoDiv.className = 'flex items-center cursor-pointer';
+            userInfoDiv.onclick = () => {
+                window.location.href = `user-profile.html?uid=${userData.id}`;
+            };
+            
+            userInfoDiv.innerHTML = `
+                <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center text-white font-bold mr-4 overflow-hidden">
+                    ${userData.avatarUrl ? 
+                        `<img src="${userData.avatarUrl}" class="w-full h-full object-cover">` :
+                        `<span class="text-lg">${userData.username[0].toUpperCase()}</span>`
+                    }
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-800 hover:text-blue-500 transition-colors">${userData.username}</h3>
+                    <p class="text-sm text-gray-500">${userData.bio || '這個用戶很神秘，還沒有介紹自己'}</p>
+                </div>
+            `;
+
+            // 創建追蹤按鈕
+            const followButton = document.createElement('button');
+            followButton.className = `follow-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                isFollowing ? 
+                'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                'bg-blue-500 text-white hover:bg-blue-600'
+            }`;
+            followButton.onclick = (e) => {
+                e.stopPropagation(); // 防止事件冒泡
+                toggleFollow(userData.id, followButton);
+            };
+            followButton.innerHTML = `
+                <span class="flex items-center">
+                    ${isFollowing ? 
+                        `<svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>已追蹤` : 
+                        `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>追蹤`
+                    }
+                </span>
+            `;
+
+            // 組合元素
+            div.appendChild(userInfoDiv);
+            div.appendChild(followButton);
+            
+            return div;
+        }
+
+        function createPostResultElement(postData) {
+            const div = document.createElement('div');
+            div.className = 'bg-white rounded-lg shadow p-4 mb-3';
+            div.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <span class="text-sm font-medium text-gray-800">${postData.username}</span>
+                        <span class="text-sm text-gray-500 ml-2">${formatDate(postData.createdAt)}</span>
+                    </div>
+                </div>
+                <p class="text-gray-800">${postData.content}</p>
+            `;
+            return div;
+        }
+
+        async function toggleFollow(targetUserId, button) {
+            button.disabled = true;
+            button.classList.add('opacity-50');
+            
+            try {
+                const userRef = db.collection('users').doc(currentUser.uid);
+                const userDoc = await userRef.get();
+                const following = userDoc.data().following || [];
+                
+                const isFollowing = following.includes(targetUserId);
+                
+                // 添加動畫效果
+                button.style.transform = 'scale(0.95)';
+                
+                // 更新 Firestore
+                await userRef.update({
+                    following: isFollowing ? 
+                        firebase.firestore.FieldValue.arrayRemove(targetUserId) :
+                        firebase.firestore.FieldValue.arrayUnion(targetUserId)
+                });
+
+                // 更新目標用戶的追蹤者列表
+                const targetUserRef = db.collection('users').doc(targetUserId);
+                await targetUserRef.update({
+                    followers: isFollowing ?
+                        firebase.firestore.FieldValue.arrayRemove(currentUser.uid) :
+                        firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                });
+
+                // 更新當前用戶的追蹤列表
+                if (isFollowing) {
+                    currentUser.following = following.filter(id => id !== targetUserId);
+                } else {
+                    currentUser.following.push(targetUserId);
+                }
+                
+                // 更新按鈕狀態和樣式
+                button.innerHTML = `
+                    <span class="flex items-center">
+                        ${!isFollowing ? 
+                            `<svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>已追蹤` : 
+                            `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>追蹤`
+                        }
+                    </span>
+                `;
+                
+                button.className = `follow-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                    !isFollowing ? 
+                    'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
+                    'bg-blue-500 text-white hover:bg-blue-600'
+                }`;
+                
+            } catch (error) {
+                console.error('追蹤操作失敗:', error);
+                alert('操作失敗，請稍後再試');
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-50');
+                button.style.transform = 'scale(1)';
+            }
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '';
+            const date = timestamp.toDate();
+            return new Intl.DateTimeFormat('zh-TW', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        // 清理過期快取
+        setInterval(() => {
+            const now = Date.now();
+            for (const [key, value] of searchCache.entries()) {
+                if (now - value.timestamp > CACHE_DURATION) {
+                    searchCache.delete(key);
+                }
+            }
+        }, CACHE_DURATION);
+    </script>
+</body>
+</html>

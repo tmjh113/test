@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天中乾淨團隊成員</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        
+        .member-card {
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        
+        .member-card:nth-child(1) { animation-delay: 0.2s; }
+        .member-card:nth-child(2) { animation-delay: 0.4s; }
+        .member-card:nth-child(3) { animation-delay: 0.6s; }
+        .member-card:nth-child(4) { animation-delay: 0.8s; }
+
+        /* 領導層卡片基礎樣式 */
+        .leadership-card {
+            position: relative;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.1);
+            padding: 20px;
+        }
+
+        /* 精美的領導層徽章 - 移至中間 */
+        .leadership-badge {
+            position: relative;  /* 改為 relative */
+            display: inline-block;
+            margin: 15px auto;   /* 上下間距 */
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            padding: 8px 24px;
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            box-shadow: 
+                0 4px 15px rgba(99, 102, 241, 0.3),
+                0 2px 4px rgba(99, 102, 241, 0.1),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* 精美的照片邊框 */
+        .leadership-photo {
+            position: relative;
+            padding: 5px;
+            margin-top: 15px;    /* 調整頭像上方間距 */
+            background: linear-gradient(135deg, #4f46e5, #7c3aed, #d946ef);
+            border-radius: 50%;
+            box-shadow: 
+                0 0 20px rgba(99, 102, 241, 0.2),
+                0 0 0 3px rgba(255, 255, 255, 1);
+            transition: all 0.3s ease;
+        }
+
+        .leadership-photo img {
+            border: 3px solid white;
+            border-radius: 50%;
+        }
+
+        .leadership-card:hover .leadership-photo {
+            transform: scale(1.05);
+            box-shadow: 
+                0 0 30px rgba(99, 102, 241, 0.3),
+                0 0 0 3px rgba(255, 255, 255, 1);
+        }
+
+        /* 卡片懸浮效果 */
+        .leadership-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .leadership-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+
+        <!-- 主要內容 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <!-- 標題區塊 -->
+            <div class="text-center mb-16 animate-fade-in">
+                <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600">
+                        團隊成員介紹
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                    認識為天中乾淨付出的每一位成員
+                </p>
+            </div>
+
+            <!-- 成員卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- 執行長卡片 -->
+                <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="leadership-badge">執行長</div>
+                    <div class="w-32 h-32 mx-auto mt-4 leadership-photo">
+                        <img src="圖片/n.jpg" alt="N" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-6">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">N</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
+                                    營運總監
+                                </p>
+                                <p class="text-sm text-gray-500">前任執行長</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                天中乾淨的現任執行長，負責團隊的整體營運與發展。工作之餘熱愛織毛線，擅長將溫暖注入每一個作品中。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">團隊管理</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">營運策略</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">手工藝術</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 副執行長卡片 -->
+                <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="leadership-badge">副執行長</div>
+                    <div class="w-32 h-32 mx-auto mt-4 leadership-photo">
+                        <img src="圖片/ha.jpg" alt="Ha" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-6">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Ha</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
+                                    藝術總監
+                                </p>
+                                <p class="text-sm text-gray-500">插畫設計師</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                負責平台的視覺藝術設計，以獨特的繪畫風格為團隊注入創意能量。擅長將抽象概念轉化為生動的視覺作品。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">插畫創作</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">視覺設計</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">藝術創作</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成員 2 (天母幹話王) -->
+                <div class="member-card bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="p-6">
+                        <div class="text-center">
+                            <div class="relative">
+                                <div class="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="圖片/天母幹話王.jpg" 
+                                         alt="天母幹話王" 
+                                         class="w-full h-full object-cover"
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23ec4899\'%3E%3Cpath d=\'M12 12a5 5 0 100-10 5 5 0 000 10zm0-10a3 3 0 110 6 3 3 0 010-6zm8 14c0-4.42-3.58-8-8-8s-8 3.58-8 8h16z\'/%3E%3C/svg%3E'">
+                                </div>
+                                <!-- 影音總監標籤 -->
+                                <div class="absolute -top-2 -right-2 bg-gradient-to-r from-rose-400 to-pink-500 text-white text-sm px-3 py-1 rounded-full shadow-lg">
+                                    影音總監
+                                </div>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">天母幹話王</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600">
+                                    動畫設計 & 影音製作
+                                </p>
+                                <p class="text-sm text-gray-500">創意總監</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                負責平台的視覺動畫與影音內容製作，為使用者帶來生動有趣的互動體驗。擅長創意設計與影音剪輯。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">動畫設計</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">影片製作</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">創意企劃</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成員 3 (李春嬌) -->
+                <div class="member-card bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="p-6">
+                        <div class="text-center">
+                            <div class="relative">
+                                <div class="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="圖片/8.jpg" 
+                                         alt="李春嬌" 
+                                         class="w-full h-full object-cover"
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23f59e0b\'%3E%3Cpath d=\'M12 12a5 5 0 100-10 5 5 0 000 10zm0-10a3 3 0 110 6 3 3 0 010-6zm8 14c0-4.42-3.58-8-8-8s-8 3.58-8 8h16z\'/%3E%3C/svg%3E'">
+                                </div>
+                                <!-- 設計總監標籤 -->
+                                <div class="absolute -top-2 -right-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm px-3 py-1 rounded-full shadow-lg">
+                                    設計總監
+                                </div>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">李春嬌</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-amber-500 to-orange-600">
+                                    設計總監
+                                </p>
+                                <p class="text-sm text-gray-500">專業接送專家</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                團隊中最資深的成員，擁有豐富的接送經驗。每天準時接送孩子放學，從不遲到。深受家長和孩子們的信賴。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">準時接送</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">路線規劃</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">安全護送</span>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成員 5 (Chill Guy) -->
+                <div class="member-card bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="p-6">
+                        <div class="text-center">
+                            <div class="relative">
+                                <div class="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden">
+                                    <img src="圖片/chill guy.jpg" 
+                                         alt="Chill Guy" 
+                                         class="w-full h-full object-cover"
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%238B5CF6\'%3E%3Cpath d=\'M12 12a5 5 0 100-10 5 5 0 000 10zm0-10a3 3 0 110 6 3 3 0 010-6zm8 14c0-4.42-3.58-8-8-8s-8 3.58-8 8h16z\'/%3E%3C/svg%3E'">
+                                </div>
+                                <!-- 品牌總監標籤 -->
+                                <div class="absolute -top-2 -right-2 bg-gradient-to-r from-violet-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full shadow-lg">
+                                    品牌總監
+                                </div>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Chill Guy</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-500 to-purple-600">
+                                    品牌策略專家
+                                </p>
+                                <p class="text-sm text-gray-500">品牌規劃師</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                負責天中乾淨的品牌定位與發展策略，以獨特的視角打造品牌形象。專注於提升品牌價值與市場影響力。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">品牌規劃</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">市場策略</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">品牌定位</span>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 成員 1 (AlgoKyle) -->
+                <div class="member-card leadership-card bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-all duration-300">
+                    <div class="leadership-badge">創辦人</div>
+                    <div class="w-32 h-32 mx-auto mt-4 leadership-photo">
+                        <img src="圖片/algokyle.jpg" alt="AlgoKyle" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-6">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">AlgoKyle</h3>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
+                                    創辦人 & 全端開發者
+                                </p>
+                                <p class="text-sm text-gray-500">前任執行長</p>
+                            </div>
+                            <p class="text-gray-600 mb-4 leading-relaxed">
+                                天中乾淨的創始者，負責整個平台的設計與開發。以創新的技術理念打造安全且友善的校園社群平台。
+                            </p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p class="font-medium">專長領域：</p>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">全端開發</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">系統架構</span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-gray-600">UI/UX設計</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+           
+
+        <!-- 頁腳 -->
+        <footer class="bg-white mt-20">
+            <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-500">
+                <p>© 2024 天中乾淨. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
