@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理員後台 - 乾淨天中</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="h-full bg-gray-50">
+    <!-- 頂部導航 -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16 items-center">
+                <h1 class="text-xl font-bold text-gray-800">管理員後台</h1>
+                <button id="logoutBtn" class="text-red-600 hover:text-red-700">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區域 -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <!-- 貼文列表 -->
+            <div id="postsContainer" class="space-y-6">
+                <div class="animate-pulse">載入中...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
+            authDomain: "tmjhpro.firebaseapp.com",
+            projectId: "tmjhpro",
+            storageBucket: "tmjhpro.firebasestorage.app",
+            messagingSenderId: "602310027605",
+            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
+            measurementId: "G-CRPMJJ8KZP"
+        };
+
+        // 初始化 Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const db = firebase.firestore();
+        let currentUser = null;
+
+        // 檢查管理員權限
+        async function checkAdminStatus(user) {
+            if (!user) return false;
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                return userDoc.exists && userDoc.data().isAdmin === true;
+            } catch (error) {
+                console.error('檢查管理員權限失敗:', error);
+                return false;
+            }
+        }
+
+        // 格式化時間
+        function formatTime(timestamp) {
+            if (!timestamp) return '未知時間';
+            const date = timestamp.toDate();
+            return date.toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 載入所有貼文
+        async function loadPosts() {
+            const postsContainer = document.getElementById('postsContainer');
+            try {
+                const snapshot = await db.collection('posts')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                if (snapshot.empty) {
+                    postsContainer.innerHTML = '<div class="text-gray-500 text-center">目前沒有任何貼文</div>';
+                    return;
+                }
+
+                let postsHTML = '';
+                for (const doc of snapshot.docs) {
+                    const post = doc.data();
+                    const userDoc = await db.collection('users').doc(post.userId).get();
+                    const userData = userDoc.exists ? userDoc.data() : { displayName: '未知用戶' };
+
+                    postsHTML += `
+                        <div class="border rounded-lg p-4 space-y-4" id="post-${doc.id}">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-semibold">${userData.displayName}</div>
+                                    <div class="text-sm text-gray-500">${formatTime(post.createdAt)}</div>
+                                </div>
+                                <button onclick="deletePost('${doc.id}')" 
+                                        class="text-red-600 hover:text-red-700">
+                                    刪除貼文
+                                </button>
+                            </div>
+                            <div class="text-gray-800">${post.content}</div>
+                            ${post.images ? `
+                                <div class="grid grid-cols-2 gap-2">
+                                    ${post.images.map(url => `
+                                        <img src="${url}" class="rounded-lg w-full h-48 object-cover">
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <!-- 評論區域 -->
+                            <div class="mt-4 space-y-2">
+                                <div class="font-medium">評論 (${post.comments?.length || 0})</div>
+                                ${(post.comments || []).map((comment, index) => `
+                                    <div class="flex justify-between items-start bg-gray-50 p-2 rounded">
+                                        <div>
+                                            <div class="font-medium">${comment.username}</div>
+                                            <div class="text-gray-600">${comment.content}</div>
+                                            <div class="text-xs text-gray-500">${formatTime(comment.createdAt)}</div>
+                                        </div>
+                                        <button onclick="deleteComment('${doc.id}', ${index})"
+                                                class="text-red-600 hover:text-red-700 text-sm">
+                                            刪除評論
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                postsContainer.innerHTML = postsHTML;
+
+            } catch (error) {
+                console.error('載入貼文失敗:', error);
+                postsContainer.innerHTML = '<div class="text-red-500 text-center">載入失敗，請重試</div>';
+            }
+        }
+
+        // 刪除貼文
+        async function deletePost(postId) {
+            if (!confirm('確定要刪除這篇貼文嗎？此操作無法復原。')) return;
+
+            try {
+                await db.collection('posts').doc(postId).delete();
+                document.getElementById(`post-${postId}`).remove();
+                alert('貼文已刪除');
+            } catch (error) {
+                console.error('刪除貼文失敗:', error);
+                alert('刪除失敗，請重試');
+            }
+        }
+
+        // 刪除評論
+        async function deleteComment(postId, commentIndex) {
+            if (!confirm('確定要刪除這則評論嗎？此操作無法復原。')) return;
+
+            try {
+                const postRef = db.collection('posts').doc(postId);
+                const post = await postRef.get();
+                const comments = post.data().comments || [];
+                
+                comments.splice(commentIndex, 1);
+                await postRef.update({ comments });
+                
+                // 重新載入貼文
+                loadPosts();
+                alert('評論已刪除');
+            } catch (error) {
+                console.error('刪除評論失敗:', error);
+                alert('刪除失敗，請重試');
+            }
+        }
+
+        // 登出功能
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            firebase.auth().signOut()
+                .then(() => window.location.href = 'login.html')
+                .catch(error => console.error('登出失敗:', error));
+        });
+
+        // 初始化
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                const isAdmin = await checkAdminStatus(user);
+                if (!isAdmin) {
+                    alert('您沒有管理員權限');
+                    window.location.href = 'home.html';
+                    return;
+                }
+                currentUser = user;
+                loadPosts();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html> 

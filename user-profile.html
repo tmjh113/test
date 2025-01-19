@@ -196,6 +196,27 @@
     </style>
 
     <script>
+        // 添加導航函數
+        function navigateTo(path) {
+            window.location.href = `/test${path}`;
+        }
+
+        // 檢查登入狀態
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+                navigateTo('/login.html');
+                return;
+            }
+            currentUser = user;
+
+            // 獲取當前用戶的追蹤列表
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            currentUser.following = userDoc.data().following || [];
+
+            // 載入目標用戶資料
+            loadUserProfile();
+        });
+
         // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
@@ -218,22 +239,6 @@
         // 獲取 URL 參數中的用戶 ID
         const urlParams = new URLSearchParams(window.location.search);
         targetUserId = urlParams.get('uid');
-
-        // 檢查登入狀態並載入資料
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (!user) {
-                window.location.href = 'login.html';
-                return;
-            }
-            currentUser = user;
-
-            // 獲取當前用戶的追蹤列表
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            currentUser.following = userDoc.data().following || [];
-
-            // 載入目標用戶資料
-            loadUserProfile();
-        });
 
         async function loadUserProfile() {
             try {

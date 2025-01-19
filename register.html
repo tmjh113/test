@@ -224,6 +224,11 @@
     </div>
 
 <script>
+// 添加導航函數
+function navigateTo(path) {
+    window.location.href = `/test${path}`;
+}
+
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -297,7 +302,7 @@ async function handleRegister(event) {
         
         // 等待動畫播放完成後跳轉
         setTimeout(() => {
-            window.location.href = '/test/login.html';
+            navigateTo('/login.html');  // 使用導航函數
         }, 1500);
     } catch (error) {
         // 隱藏加載動畫
@@ -318,6 +323,18 @@ async function handleRegister(event) {
         alert(errorMessage);
     }
 }
+
+// 修改返回首頁按鈕
+document.querySelector('.fixed.top-4.left-4 a').onclick = function(e) {
+    e.preventDefault();
+    navigateTo('/index.html');
+};
+
+// 修改登入連結
+document.querySelector('a[href="/test/login.html"]').onclick = function(e) {
+    e.preventDefault();
+    navigateTo('/login.html');
+};
 </script>
 </body>
 </html> 

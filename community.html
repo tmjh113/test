@@ -852,17 +852,19 @@
             `;
         }
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeObserver();
-            firebase.auth().onAuthStateChanged((user) => {
-                if (user) {
-                    currentUser = user;
-                    loadPosts(true);
-                } else {
-                    window.location.href = 'login.html';
-                }
-            });
+        // 添加導航函數
+        function navigateTo(path) {
+            window.location.href = `/test${path}`;
+        }
+
+        // 檢查登入狀態
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                navigateTo('/login.html');
+                return;
+            }
+            currentUser = user;
+            loadPosts(true);
         });
     </script>
 </body>

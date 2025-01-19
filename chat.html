@@ -25,6 +25,26 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+
+        // 添加導航函數
+        function navigateTo(path) {
+            window.location.href = `/test${path}`;
+        }
+
+        // 檢查登入狀態
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+                navigateTo('/login.html');
+                return;
+            }
+            await loadRecentChats();
+            updatePendingCount();
+        });
+
+        // 修改返回按鈕
+        document.querySelector('button[onclick^="window.location"]').onclick = function() {
+            navigateTo('/index.html');
+        };
     </script>
 
     <style>
@@ -274,16 +294,6 @@
         let currentTab = 'recent';
         let userCache = new Map();
         let currentChatUser = null;
-
-        // 檢查用戶登入狀態
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (!user) {
-                window.location.href = '/test/login.html';
-                return;
-            }
-            await loadRecentChats();
-            updatePendingCount();
-        });
 
         // 切換標籤
         async function switchTab(tab) {
