@@ -69,6 +69,69 @@
             from { transform: translateX(-10px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        /* 聊天氣泡動畫 */
+        @keyframes messageIn {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-bubble {
+            animation: messageIn 0.3s ease-out forwards;
+            max-width: 80%;
+        }
+
+        .message-bubble.own {
+            background: linear-gradient(135deg, #6366F1, #4F46E5);
+        }
+
+        .message-bubble.other {
+            background: #F3F4F6;
+        }
+
+        /* 打字指示器動畫 */
+        @keyframes typingDot {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .typing-indicator span {
+            width: 4px;
+            height: 4px;
+            margin: 0 1px;
+            background: #9CA3AF;
+            border-radius: 50%;
+            display: inline-block;
+            animation: typingDot 1s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        /* 滾動條美化 */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #CBD5E0;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body class="h-full bg-gray-50">
@@ -76,7 +139,7 @@
     <div class="bg-white shadow-md fixed top-0 left-0 right-0 z-10">
         <div class="max-w-xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
-                <button onclick="window.location.href='/home.html'" class="text-gray-600">
+                <button onclick="window.location.href='index.html'" class="text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
@@ -159,7 +222,7 @@
         // 檢查用戶登入狀態
         firebase.auth().onAuthStateChanged(async (user) => {
             if (!user) {
-                window.location.href = '/login.html';
+                window.location.href = 'login.html';
                 return;
             }
             await loadRecentChats();
@@ -352,46 +415,92 @@
         }
 
         // 載入聊天記錄
-        function loadMessages(adminId) {
+        function loadMessages(userId) {
             const messagesDiv = document.getElementById('chatMessages');
             const currentUser = firebase.auth().currentUser;
 
             // 創建聊天室ID（確保唯一性）
-            const chatRoomId = [currentUser.uid, adminId].sort().join('_');
+            const chatRoomId = [currentUser.uid, userId].sort().join('_');
 
-            // 監聽新消息
-            db.collection('chats')
-                .doc(chatRoomId)
-                .collection('messages')
-                .orderBy('createdAt', 'desc')
-                .limit(50)
-                .onSnapshot((snapshot) => {
-                    messagesDiv.innerHTML = '';
-                    snapshot.docs.reverse().forEach(doc => {
-                        const message = doc.data();
-                        const isOwnMessage = message.userId === currentUser.uid;
-                        
-                        const messageElement = document.createElement('div');
-                        messageElement.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`;
-                        messageElement.innerHTML = `
-                            <div class="max-w-xs ${isOwnMessage ? 'bg-indigo-500 text-white' : 'bg-white'} rounded-lg px-4 py-2 shadow">
-                                <div class="text-sm">${message.content}</div>
-                                <div class="text-xs ${isOwnMessage ? 'text-white/70' : 'text-gray-500'} mt-1">${message.username}</div>
+            // 檢查是否可以聊天
+            checkChatPermission(chatRoomId).then(canChat => {
+                if (!canChat) {
+                    messagesDiv.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+                            <div class="w-16 h-16 mb-4">
+                                <svg class="w-full h-full text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                </svg>
                             </div>
-                        `;
-                        messagesDiv.appendChild(messageElement);
+                            <p class="text-gray-500 mb-4">等待對方接受您的訊息請求</p>
+                            <button onclick="cancelRequest('${chatRoomId}')" 
+                                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                                取消請求
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 監聽新消息
+                db.collection('chats')
+                    .doc(chatRoomId)
+                    .collection('messages')
+                    .orderBy('createdAt', 'desc')
+                    .limit(50)
+                    .onSnapshot((snapshot) => {
+                        messagesDiv.innerHTML = '';
+                        snapshot.docs.reverse().forEach(doc => {
+                            const message = doc.data();
+                            const isOwnMessage = message.userId === currentUser.uid;
+                            
+                            const messageElement = document.createElement('div');
+                            messageElement.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
+                            messageElement.innerHTML = `
+                                <div class="message-bubble ${isOwnMessage ? 'own text-white' : 'other text-gray-800'} 
+                                         rounded-2xl px-4 py-2 shadow-sm">
+                                    <div class="text-sm">${message.content}</div>
+                                    <div class="text-xs ${isOwnMessage ? 'text-white/70' : 'text-gray-500'} mt-1">
+                                        ${formatTime(message.createdAt)}
+                                    </div>
+                                </div>
+                            `;
+                            messagesDiv.appendChild(messageElement);
+                        });
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     });
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                });
+            });
+        }
+
+        // 檢查聊天權限
+        async function checkChatPermission(chatRoomId) {
+            const requestDoc = await db.collection('chatRequests')
+                .doc(chatRoomId)
+                .get();
+
+            if (!requestDoc.exists) return true; // 如果沒有請求記錄，允許聊天
+            return requestDoc.data().status === 'accepted';
+        }
+
+        // 取消請求
+        async function cancelRequest(chatRoomId) {
+            try {
+                await db.collection('chatRequests')
+                    .doc(chatRoomId)
+                    .delete();
+                
+                window.location.href = 'chat.html';
+            } catch (error) {
+                console.error('取消請求失敗:', error);
+                alert('取消失敗，請稍後再試');
+            }
         }
 
         // 發送消息
         async function sendMessage() {
-            if (!currentChatUser) return;
-
             const messageInput = document.getElementById('messageInput');
             const content = messageInput.value.trim();
-            if (!content) return;
+            if (!content || !currentChatUser) return;
 
             try {
                 const currentUser = firebase.auth().currentUser;
@@ -406,7 +515,19 @@
                     // 創建陌生人訊息請求
                     await handleStrangerMessage(currentChatUser, content);
                     messageInput.value = '';
-                    alert('訊息已發送，等待對方接受');
+                    
+                    // 顯示等待提示
+                    const messagesDiv = document.getElementById('chatMessages');
+                    messagesDiv.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+                            <div class="typing-indicator mb-4">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <p class="text-gray-500">等待對方接受您的訊息請求</p>
+                        </div>
+                    `;
                     return;
                 }
 
@@ -417,7 +538,7 @@
                 }
 
                 // 正常發送消息
-                await db.collection('chats')
+                const messageRef = await db.collection('chats')
                     .doc(chatRoomId)
                     .collection('messages')
                     .add({
@@ -427,7 +548,26 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
+                // 更新最後一條消息
+                await db.collection('chats').doc(chatRoomId).set({
+                    lastMessage: content,
+                    lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    participants: [currentUser.uid, currentChatUser]
+                }, { merge: true });
+
                 messageInput.value = '';
+                
+                // 添加發送動畫
+                const messageElement = document.createElement('div');
+                messageElement.className = 'flex justify-end mb-4';
+                messageElement.innerHTML = `
+                    <div class="message-bubble own text-white rounded-2xl px-4 py-2 shadow-sm">
+                        <div class="text-sm">${content}</div>
+                        <div class="text-xs text-white/70 mt-1">剛剛</div>
+                    </div>
+                `;
+                document.getElementById('chatMessages').appendChild(messageElement);
+                
             } catch (error) {
                 console.error('發送失敗:', error);
                 alert('發送失敗，請稍後再試');
@@ -460,7 +600,7 @@
             const searchTerm = event.target.value.trim().toLowerCase();
             const resultsDiv = document.getElementById('searchResults');
             
-            if (searchTerm.length < 2) {
+            if (searchTerm.length < 1) {  // 改為只要輸入1個字就開始搜尋
                 resultsDiv.classList.add('hidden');
                 return;
             }
@@ -468,56 +608,50 @@
             try {
                 const currentUser = firebase.auth().currentUser;
                 
-                // 搜尋用戶
+                // 修改搜尋邏輯
                 const usersSnapshot = await db.collection('users')
-                    .where('usernameLower', '>=', searchTerm)
-                    .where('usernameLower', '<=', searchTerm + '\uf8ff')
-                    .limit(10)
+                    .orderBy('username')  // 使用 username 而不是 usernameLower
+                    .startAt(searchTerm)
+                    .endAt(searchTerm + '\uf8ff')
+                    .limit(20)  // 增加搜尋結果數量
                     .get();
 
+                // 如果沒有結果，嘗試模糊搜尋
                 if (usersSnapshot.empty) {
-                    resultsDiv.innerHTML = `
-                        <div class="p-4 text-center text-gray-500">
-                            沒有找到相關用戶
-                        </div>
-                    `;
-                    resultsDiv.classList.remove('hidden');
-                    return;
-                }
+                    const allUsersSnapshot = await db.collection('users')
+                        .orderBy('username')
+                        .limit(100)
+                        .get();
 
-                // 渲染搜尋結果
-                resultsDiv.innerHTML = '';
-                usersSnapshot.docs.forEach(doc => {
-                    if (doc.id === currentUser.uid) return; // 排除自己
-                    
-                    const userData = doc.data();
-                    const div = document.createElement('div');
-                    div.className = 'search-result-item p-3 hover:bg-gray-50 cursor-pointer flex items-center transition-colors duration-200';
-                    div.onclick = () => {
-                        startChat(doc.id, userData.username);
-                        resultsDiv.classList.add('hidden');
-                        document.getElementById('searchInput').value = '';
-                    };
-                    
-                    div.innerHTML = `
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                            ${userData.avatarUrl ? 
-                                `<img src="${userData.avatarUrl}" class="w-full h-full object-cover">` :
-                                userData.username[0].toUpperCase()}
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <div class="font-medium text-gray-900">${userData.username}</div>
-                            <div class="text-sm text-gray-500">${userData.bio || '沒有個人簡介'}</div>
-                        </div>
-                        <div class="text-indigo-500">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                            </svg>
-                        </div>
-                    `;
-                    
-                    resultsDiv.appendChild(div);
-                });
+                    const filteredUsers = allUsersSnapshot.docs.filter(doc => {
+                        const username = doc.data().username.toLowerCase();
+                        return username.includes(searchTerm) && doc.id !== currentUser.uid;
+                    }).slice(0, 20);
+
+                    if (filteredUsers.length === 0) {
+                        resultsDiv.innerHTML = `
+                            <div class="p-4 text-center text-gray-500">
+                                沒有找到相關用戶
+                            </div>
+                        `;
+                        resultsDiv.classList.remove('hidden');
+                        return;
+                    }
+
+                    // 渲染模糊搜尋結果
+                    resultsDiv.innerHTML = '';
+                    filteredUsers.forEach(doc => {
+                        renderSearchResult(doc.id, doc.data(), resultsDiv);
+                    });
+                } else {
+                    // 渲染精確搜尋結果
+                    resultsDiv.innerHTML = '';
+                    usersSnapshot.docs.forEach(doc => {
+                        if (doc.id !== currentUser.uid) {
+                            renderSearchResult(doc.id, doc.data(), resultsDiv);
+                        }
+                    });
+                }
                 
                 resultsDiv.classList.remove('hidden');
 
@@ -532,133 +666,72 @@
             }
         }, 300);
 
-        // 點擊外部關閉搜尋結果
-        document.addEventListener('click', (event) => {
-            const searchResults = document.getElementById('searchResults');
-            const searchInput = document.getElementById('searchInput');
+        // 渲染搜尋結果項目
+        function renderSearchResult(userId, userData, container) {
+            const div = document.createElement('div');
+            div.className = 'search-result-item p-3 hover:bg-gray-50 cursor-pointer flex items-center transition-colors duration-200';
+            div.onclick = () => {
+                startChat(userId, userData.username);
+                document.getElementById('searchResults').classList.add('hidden');
+                document.getElementById('searchInput').value = '';
+            };
             
-            if (!searchResults.contains(event.target) && event.target !== searchInput) {
-                searchResults.classList.add('hidden');
-            }
-        });
-
-        // 添加搜尋結果的樣式
-        const style = document.createElement('style');
-        style.textContent = `
-            .search-result-item {
-                animation: slideDown 0.2s ease-out;
-            }
-
-            @keyframes slideDown {
-                from {
-                    opacity: 0;
-                    transform: translateY(-10px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            #searchResults {
-                max-height: 400px;
-                overflow-y: auto;
-                scrollbar-width: thin;
-                scrollbar-color: #CBD5E0 #F7FAFC;
-            }
-
-            #searchResults::-webkit-scrollbar {
-                width: 6px;
-            }
-
-            #searchResults::-webkit-scrollbar-track {
-                background: #F7FAFC;
-            }
-
-            #searchResults::-webkit-scrollbar-thumb {
-                background-color: #CBD5E0;
-                border-radius: 3px;
-            }
-
-            .search-result-item:hover {
-                background-color: #F3F4F6;
-            }
-        `;
-        document.head.appendChild(style);
-
-        // 新增處理陌生人訊息的功能
-        async function handleStrangerMessage(senderId, message) {
-            const currentUser = firebase.auth().currentUser;
-            const chatRoomId = [currentUser.uid, senderId].sort().join('_');
+            div.innerHTML = `
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                    ${userData.avatarUrl ? 
+                        `<img src="${userData.avatarUrl}" class="w-full h-full rounded-full object-cover">` :
+                        userData.username[0].toUpperCase()}
+                </div>
+                <div class="ml-3">
+                    <div class="font-medium text-gray-900">${userData.username}</div>
+                </div>
+            `;
             
-            // 檢查是否已經處理過這個用戶的請求
-            const requestDoc = await db.collection('chatRequests')
-                .doc(chatRoomId)
-                .get();
+            container.appendChild(div);
+        }
 
-            if (!requestDoc.exists) {
-                // 創建新的聊天請求
+        // 更新待處理請求數量
+        async function updatePendingCount() {
+            try {
+                const currentUser = firebase.auth().currentUser;
+                const requestsSnapshot = await db.collection('chatRequests')
+                    .where('receiverId', '==', currentUser.uid)
+                    .where('status', '==', 'pending')
+                    .get();
+
+                const count = requestsSnapshot.size;
+                const countElement = document.getElementById('pendingCount');
+                
+                if (count > 0) {
+                    countElement.textContent = count;
+                    countElement.classList.remove('hidden');
+                } else {
+                    countElement.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('更新待處理數量失敗:', error);
+            }
+        }
+
+        // 處理陌生人訊息
+        async function handleStrangerMessage(receiverId, initialMessage) {
+            try {
+                const currentUser = firebase.auth().currentUser;
+                const chatRoomId = [currentUser.uid, receiverId].sort().join('_');
+
                 await db.collection('chatRequests').doc(chatRoomId).set({
-                    senderId: senderId,
-                    receiverId: currentUser.uid,
+                    senderId: currentUser.uid,
+                    receiverId: receiverId,
+                    message: initialMessage,
                     status: 'pending',
-                    message: message,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-            }
-
-            updatePendingCount();
-        }
-
-        // 更新待處理數量
-        async function updatePendingCount() {
-            const currentUser = firebase.auth().currentUser;
-            const requestsSnapshot = await db.collection('chatRequests')
-                .where('receiverId', '==', currentUser.uid)
-                .where('status', '==', 'pending')
-                .get();
-
-            const count = requestsSnapshot.size;
-            const countElement = document.getElementById('pendingCount');
-            
-            if (count > 0) {
-                countElement.textContent = count;
-                countElement.classList.remove('hidden');
-            } else {
-                countElement.classList.add('hidden');
-            }
-        }
-
-        // 處理請求
-        async function handleRequest(requestId, senderId, action) {
-            try {
-                const requestRef = db.collection('chatRequests').doc(requestId);
-                
-                if (action === 'accept') {
-                    await requestRef.update({
-                        status: 'accepted',
-                        acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    // 開始聊天
-                    const userData = userCache.get(senderId);
-                    startChat(senderId, userData.username);
-                } else {
-                    await requestRef.update({
-                        status: 'rejected',
-                        rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-
-                // 重新載入待處理列表
-                await loadPendingRequests();
-                updatePendingCount();
 
             } catch (error) {
-                console.error('處理請求失敗:', error);
-                alert('處理失敗，請稍後再試');
+                console.error('發送請求失敗:', error);
+                throw error;
             }
         }
     </script>
 </body>
-</html> 
+</html>
