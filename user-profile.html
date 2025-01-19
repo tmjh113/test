@@ -8,10 +8,34 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <!-- 初始化 Firebase -->
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
+            authDomain: "tmjhpro.firebaseapp.com",
+            projectId: "tmjhpro",
+            storageBucket: "tmjhpro.appspot.com",
+            messagingSenderId: "602310027605",
+            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
+            measurementId: "G-CRPMJJ8KZP"
+        };
+
+        // 初始化 Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        // 初始化服務
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+    </script>
 </head>
 <body class="h-full bg-gray-50">
     <div class="max-w-xl mx-auto px-4 py-8">
@@ -216,21 +240,6 @@
             // 載入目標用戶資料
             loadUserProfile();
         });
-
-        // Firebase 配置
-        const firebaseConfig = {
-            apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
-            authDomain: "tmjhpro.firebaseapp.com",
-            projectId: "tmjhpro",
-            storageBucket: "tmjhpro.firebasestorage.app",
-            messagingSenderId: "602310027605",
-            appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
-            measurementId: "G-CRPMJJ8KZP"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
 
         let currentUser = null;
         let targetUserId = null;

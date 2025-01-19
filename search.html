@@ -93,14 +93,19 @@
             apiKey: "AIzaSyCRG8gbhbEm9jsMtCucF_h9YknBc4WtD40",
             authDomain: "tmjhpro.firebaseapp.com",
             projectId: "tmjhpro",
-            storageBucket: "tmjhpro.firebasestorage.app",
+            storageBucket: "tmjhpro.appspot.com",
             messagingSenderId: "602310027605",
             appId: "1:602310027605:web:6a2d5aa3ff2a8f1a7aa7dc",
             measurementId: "G-CRPMJJ8KZP"
         };
+
+        // 初始化 Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         
-        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
         // 搜尋功能
         const searchInput = document.getElementById('searchInput');
@@ -114,7 +119,7 @@
         const CACHE_DURATION = 5 * 60 * 1000; // 5分鐘快取
 
         // 檢查用戶登入狀態
-        firebase.auth().onAuthStateChanged(async (user) => {
+        auth.onAuthStateChanged(async (user) => {
             if (!user) {
                 window.location.href = 'login.html';
                 return;
