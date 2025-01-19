@@ -590,7 +590,7 @@
             }
         }
 
-        // 切換點讚狀態
+        // 修改 toggleLike 函數
         async function toggleLike(postId) {
             if (!currentUser) {
                 alert('請先登入');
@@ -598,6 +598,7 @@
             }
 
             const likeBtn = document.getElementById(`likeBtn-${postId}`);
+            const likeIcon = likeBtn.querySelector('svg');
             const likeCount = document.getElementById(`likeCount-${postId}`);
             
             try {
@@ -607,8 +608,8 @@
                 const likedBy = postData.likedBy || [];
                 const isLiked = likedBy.includes(currentUser.uid);
 
-                // 添加動畫
-                likeBtn.classList.add('like-animation');
+                // 添加動畫類別
+                likeIcon.classList.add('like-animation');
 
                 if (isLiked) {
                     // 取消點讚
@@ -618,6 +619,7 @@
                     });
                     likeCount.textContent = (postData.likes || 1) - 1;
                     likeBtn.classList.remove('text-red-500');
+                    likeIcon.setAttribute('fill', 'none');
                 } else {
                     // 添加點讚
                     await postRef.update({
@@ -626,11 +628,12 @@
                     });
                     likeCount.textContent = (postData.likes || 0) + 1;
                     likeBtn.classList.add('text-red-500');
+                    likeIcon.setAttribute('fill', 'currentColor');
                 }
 
-                // 移除動畫
+                // 移除動畫類別
                 setTimeout(() => {
-                    likeBtn.classList.remove('like-animation');
+                    likeIcon.classList.remove('like-animation');
                 }, 400);
 
             } catch (error) {
@@ -639,13 +642,7 @@
             }
         }
 
-        // 切換評論區域顯示
-        function toggleComments(postId) {
-            const commentsSection = document.getElementById(`comments-${postId}`);
-            commentsSection.classList.toggle('hidden');
-        }
-
-        // 添加評論
+        // 修改 addComment 函數
         async function addComment(postId) {
             if (!currentUser) {
                 alert('請先登入');
@@ -653,8 +650,8 @@
             }
 
             const input = document.getElementById(`commentInput-${postId}`);
-            const sendButton = document.querySelector(`#commentInput-${postId} + button`);
             const content = input.value.trim();
+            const sendButton = document.querySelector(`#commentInput-${postId} + button`);
 
             if (!content) {
                 alert('請輸入評論內容');
@@ -673,7 +670,6 @@
                     content,
                     userId: currentUser.uid,
                     username: displayName,
-                    userPhotoURL: userData.photoURL || currentUser.photoURL || '',
                     createdAt: firebase.firestore.Timestamp.now()
                 };
 
@@ -683,18 +679,18 @@
                     comments: firebase.firestore.FieldValue.arrayUnion(comment)
                 });
 
-                // 即時更新UI
-                const commentsContainer = document.querySelector(`#comments-${postId} .space-y-2`);
+                // 更新 UI
+                const commentsContainer = document.querySelector(`#comments-${postId} .comments-container .space-y-2`);
                 const commentElement = document.createElement('div');
                 commentElement.className = 'flex items-start space-x-2 comment-new';
                 commentElement.innerHTML = `
-                    <img src="${getUserAvatar(comment.userId)}" 
+                    <img src="${getUserAvatar(currentUser.uid)}" 
                          class="w-8 h-8 rounded-full"
-                         alt="${comment.username}">
-                    <div class="flex-1">
+                         alt="${displayName}">
+                    <div class="flex-1 bg-gray-50 rounded-lg p-2">
                         <p class="text-sm">
-                            <span class="font-semibold">${comment.username}</span>
-                            ${comment.content}
+                            <span class="font-semibold hover:text-blue-500 cursor-pointer">${displayName}</span>
+                            ${content}
                         </p>
                         <p class="text-xs text-gray-500">剛剛</p>
                     </div>
@@ -704,21 +700,16 @@
                 commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
 
                 // 更新評論計數
-                const commentCount = document.querySelector(`#comments-${postId} + button span`);
-                const currentCount = parseInt(commentCount.textContent) || 0;
-                commentCount.textContent = currentCount + 1;
+                const commentCountElement = document.querySelector(`button[onclick="toggleComments('${postId}')"] span`);
+                const currentCount = parseInt(commentCountElement.textContent) || 0;
+                commentCountElement.textContent = currentCount + 1;
 
                 // 清空輸入框
                 input.value = '';
 
-                // 顯示評論區域（如果隱藏的話）
+                // 顯示評論區域
                 const commentsSection = document.getElementById(`comments-${postId}`);
-                if (commentsSection.classList.contains('hidden')) {
-                    commentsSection.classList.remove('hidden');
-                }
-
-                // 滾動到新評論
-                commentElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                commentsSection.classList.remove('hidden');
 
             } catch (error) {
                 console.error('評論失敗:', error);
@@ -728,6 +719,12 @@
                 input.disabled = false;
                 input.focus();
             }
+        }
+
+        // 切換評論區域顯示
+        function toggleComments(postId) {
+            const commentsSection = document.getElementById(`comments-${postId}`);
+            commentsSection.classList.toggle('hidden');
         }
 
         // 無限滾動
