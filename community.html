@@ -28,6 +28,8 @@
         .image-grid {
             display: grid;
             gap: 0.75rem;
+            width: 100%;
+            margin-bottom: 1rem;
         }
         
         .image-grid > div {
@@ -37,21 +39,19 @@
         }
         
         .image-grid.grid-1 { 
-            grid-template-columns: 1fr; 
-            max-height: 500px;
+            grid-template-columns: 1fr;
+            max-width: 500px;
+            margin: 0 auto;
         }
         .image-grid.grid-2 { 
             grid-template-columns: repeat(2, 1fr);
-            max-height: 400px;
         }
         .image-grid.grid-3 { 
             grid-template-columns: repeat(3, 1fr);
-            max-height: 300px;
         }
         .image-grid.grid-4 { 
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(2, 1fr);
-            max-height: 400px;
         }
         
         /* 圖片懸停效果優化 */
@@ -337,6 +337,164 @@
             background-color: #cbd5e0;
             border-radius: 3px;
         }
+
+        /* 圖片載入動畫 */
+        .image-loading {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                #f0f0f0 0%,
+                #e0e0e0 50%,
+                #f0f0f0 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* 圖片淡入效果 */
+        .image-fade-in {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .image-fade-in.loaded {
+            opacity: 1;
+        }
+
+        /* 圖片容器固定寬高比 */
+        .image-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 100%; /* 1:1 寬高比 */
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .image-container img:hover {
+            transform: scale(1.05);
+        }
+
+        /* 錯誤提示動畫 */
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .fixed {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* 優化圖片網格樣式 */
+        .image-grid {
+            display: grid;
+            gap: 0.75rem;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        
+        .image-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 100%; /* 1:1 寬高比 */
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .image-container img:hover {
+            transform: scale(1.05);
+        }
+        
+        /* 修改網格佈局 */
+        .grid-1 { 
+            grid-template-columns: 1fr;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .grid-2 { 
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .grid-3 { 
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .grid-4 { 
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        /* 圖片加載動畫 */
+        .image-loading {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                #f0f0f0 0%,
+                #e0e0e0 50%,
+                #f0f0f0 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* 圖片預覽模態框樣式 */
+        .image-preview-modal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-preview-modal.show {
+            opacity: 1;
+        }
+
+        .preview-image {
+            max-width: 90%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .preview-image.show {
+            transform: scale(1);
+        }
     </style>
 </head>
 <body class="h-full bg-gradient-to-br from-gray-50 to-gray-100">
@@ -412,23 +570,7 @@
         function formatTime(timestamp) {
             if (!timestamp) return '剛剛';
             
-            let date;
-            if (typeof timestamp === 'string') {
-                date = new Date(timestamp);
-            } else if (timestamp.toDate) {
-                date = timestamp.toDate();
-            } else if (timestamp instanceof Date) {
-                date = timestamp;
-            } else {
-                console.log('Invalid timestamp:', timestamp);
-                return '剛剛';
-            }
-
-            if (isNaN(date.getTime())) {
-                console.log('Invalid date:', date);
-                return '剛剛';
-            }
-
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
             const now = new Date();
             const diff = now - date;
             
@@ -471,217 +613,177 @@
         function loadPostImages(postElement) {
             const images = postElement.querySelectorAll('.post-image');
             images.forEach(img => {
-                if (!img.dataset.src) return;  // 如果沒有 data-src，跳過
+                if (!img.dataset.src) return;
 
-                // 先設置預設的載入中狀態
-                img.style.opacity = '0';
+                const loadingElement = img.parentElement.querySelector('.image-loading');
                 
-                // 創建新的 Image 物件來預載圖片
                 const tempImage = new Image();
-                
                 tempImage.onload = () => {
-                    // 圖片載入成功後，更新實際的 img 元素
                     img.src = img.dataset.src;
-                    img.style.opacity = '1';
-                    
-                    // 隱藏載入動畫
-                    const spinner = img.nextElementSibling;
-                    if (spinner && spinner.classList.contains('loading-spinner')) {
-                        spinner.style.display = 'none';
+                    img.classList.add('loaded');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
                     }
                 };
                 
                 tempImage.onerror = () => {
-                    // 載入失敗時顯示預設圖片
-                    img.src = 'https://i.imgur.com/6VBx3io.png';
-                    img.style.opacity = '0.5';
-                    console.error('圖片載入失敗:', img.dataset.src);
-                    
-                    // 隱藏載入動畫
-                    const spinner = img.nextElementSibling;
-                    if (spinner && spinner.classList.contains('loading-spinner')) {
-                        spinner.style.display = 'none';
+                    img.src = 'https://i.imgur.com/6VBx3io.png'; // 預設圖片
+                    img.classList.add('error');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
                     }
                 };
                 
-                // 開始載入圖片
                 tempImage.src = img.dataset.src;
             });
         }
 
-        // 優化貼文載入
-        async function loadPosts(initial = false) {
-            if (isLoading || (!hasMore && !initial)) return;
-            isLoading = true;
+        // 添加圖片預加載和懶加載功能
+        function initializeLazyLoading() {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const src = img.getAttribute('data-src');
+                        if (src) {
+                            preloadImage(src)
+                                .then(() => {
+                                    img.src = src;
+                                    img.classList.remove('skeleton');
+                                    img.removeAttribute('data-src');
+                                })
+                                .catch(console.error);
+                        }
+                        observer.unobserve(img);
+                    }
+                });
+            }, {
+                rootMargin: '50px 0px',
+                threshold: 0.1
+            });
 
+            document.querySelectorAll('img[data-src]').forEach(img => {
+                imageObserver.observe(img);
+            });
+        }
+
+        // 圖片預加載函數
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        // 優化貼文加載
+        async function loadPosts(isInitialLoad = false) {
+            if (isLoading) return;
+            isLoading = true;
+            
             const loadingIndicator = document.getElementById('loadingIndicator');
-            const container = document.getElementById('postsContainer');
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            loadingIndicator.classList.remove('hidden');
+
+            let query = db.collection('posts')
+                .orderBy('createdAt', 'desc')
+                .limit(postsPerPage);
+            
+            if (lastDoc && !isInitialLoad) {
+                query = query.startAfter(lastDoc);
+            }
 
             try {
-                if (loadingIndicator) loadingIndicator.classList.remove('hidden');
-
-                let query = db.collection('posts')
-                    .orderBy('createdAt', 'desc')
-                    .limit(postsPerPage);
-
-                if (!initial && lastDoc) {
-                    query = query.startAfter(lastDoc);
-                }
-
                 const snapshot = await query.get();
                 
-                // 收集所有需要的用戶ID
-                const userIds = new Set();
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    userIds.add(data.userId);
-                    if (data.comments) {
-                        data.comments.forEach(comment => userIds.add(comment.userId));
-                    }
-                });
-
-                // 批量獲取用戶數據
-                const userPromises = [...userIds].map(async userId => {
-                    if (!userCache.has(userId)) {
-                        const userDoc = await db.collection('users').doc(userId).get();
-                        if (userDoc.exists) {
-                            userCache.set(userId, userDoc.data());
-                        }
-                    }
-                    return userCache.get(userId);
-                });
-
-                await Promise.all(userPromises);
-
-                if (initial) {
-                    container.innerHTML = '';
-                }
-
                 if (snapshot.empty) {
                     hasMore = false;
-                    if (initial) {
-                        container.innerHTML = `
-                            <div class="text-center py-12">
-                                <div class="text-gray-500 text-lg">目前還沒有任何貼文</div>
-                                <button onclick="window.location.href='create-post.html'" 
-                                        class="mt-4 px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors">
-                                    發布第一篇貼文
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        const endMessage = document.createElement('div');
-                        endMessage.className = 'text-center py-8 text-gray-500 post-fade-in';
-                        endMessage.textContent = '沒有更多貼文了';
-                        container.appendChild(endMessage);
-                    }
-                    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+                    document.getElementById('loadMoreBtn').classList.add('hidden');
                     return;
                 }
 
                 lastDoc = snapshot.docs[snapshot.docs.length - 1];
-
-                for (const doc of snapshot.docs) {
-                    const postData = doc.data();
-                    
-                    // 獲取發文者資料
-                    let userData = {};
-                    if (postData.userId) {
-                        const userDoc = await db.collection('users').doc(postData.userId).get();
-                        if (userDoc.exists) {
-                            userData = userDoc.data();
-                        }
-                    }
-
-                    // 確保用戶名稱
-                    const displayName = userData.displayName || postData.username || '匿名用戶';
-
-                    // 獲取評論用戶資料
-                    const commentsWithUserData = await Promise.all((postData.comments || []).map(async comment => {
-                        let commentUserData = {};
-                        if (comment.userId) {
-                            const commentUserDoc = await db.collection('users').doc(comment.userId).get();
-                            if (commentUserDoc.exists) {
-                                commentUserData = commentUserDoc.data();
-                            }
-                        }
-                        return {
-                            ...comment,
-                            userData: commentUserData,
-                            displayName: commentUserData.displayName || comment.username || '匿名用戶'
-                        };
-                    }));
-
-                    const postElement = document.createElement('article');
-                    postElement.className = 'instagram-card mb-6';
-                    
-                    const isLiked = postData.likedBy?.includes(currentUser.uid);
-
-                    postElement.innerHTML = `
-                        <div class="p-4">
-                            <!-- 用戶信息 -->
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center">
-                                    <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center overflow-hidden mr-3">
-                                        ${userData.avatarUrl ? 
-                                            `<img src="${userData.avatarUrl}" class="w-full h-full object-cover">` :
-                                            `<span class="text-white font-bold">${userData.username[0].toUpperCase()}</span>`
-                                        }
-                                    </div>
-                                    <div class="flex items-center">
-                                        <div>
-                                            <span class="font-medium text-gray-800 hover:text-blue-500 cursor-pointer" 
-                                                  onclick="window.location.href='user-profile.html?uid=${postData.userId}'">
-                                                ${userData.username}
-                                            </span>
-                                            <div class="text-sm text-gray-500">${formatTime(postData.createdAt)}</div>
-                                        </div>
-                                        <!-- 添加追蹤按鈕 -->
-                                        ${currentUser && currentUser.uid !== postData.userId ? `
-                                            <button onclick="event.stopPropagation(); toggleFollowUser('${postData.userId}', this)" 
-                                                    class="ml-4 px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
-                                                        currentUser.following?.includes(postData.userId) ? 
-                                                        'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
-                                                        'bg-blue-500 text-white hover:bg-blue-600'
-                                                    }">
-                                                ${currentUser.following?.includes(postData.userId) ? '已追蹤' : '追蹤'}
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 貼文內容 -->
-                            <div class="double-tap-area" ondblclick="handleDoubleTap('${doc.id}')">
-                                ${renderPostContent(postData)}
-                            </div>
-
-                            <!-- 互動區域 -->
-                            ${renderInteractions(doc.id, postData)}
-
-                            <!-- 評論區域 -->
-                            ${renderComments(doc.id, commentsWithUserData)}
-                        </div>
-                    `;
-
-                    container.appendChild(postElement);
-                    observer.observe(postElement);
-                }
-
-            } catch (error) {
-                console.error('載入失敗:', error);
-                console.log('Error details:', error);
                 
-                // 添加錯誤提示
-                const errorMessage = document.createElement('div');
-                errorMessage.className = 'text-center py-4 text-red-500';
-                errorMessage.textContent = '載入失敗，請稍後再試';
-                container.appendChild(errorMessage);
+                const posts = await Promise.all(snapshot.docs.map(async doc => {
+                    const postData = doc.data();
+                    const userData = await getUserData(postData.userId);
+                    return {
+                        id: doc.id,
+                        ...postData,
+                        username: userData.displayName || '匿名用戶',
+                        userAvatar: userData.photoURL
+                    };
+                }));
+
+                displayPosts(posts, !isInitialLoad);
+                
+            } catch (error) {
+                console.error('載入貼文失敗:', error);
+                showErrorMessage('載入貼文失敗，請稍後再試');
             } finally {
                 isLoading = false;
-                if (loadingIndicator) loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.add('hidden');
             }
+        }
+
+        // 背景更新快取的貼文
+        async function updateCachedPosts(query) {
+            try {
+                const snapshot = await query.get();
+                const posts = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                if (posts.length > 0) {
+                    sessionStorage.setItem('cachedPosts', JSON.stringify(posts));
+                    // 如果有新的貼文，靜默更新顯示
+                    displayPosts(posts, true);
+                }
+            } catch (error) {
+                console.error('更新快取貼文失敗:', error);
+            }
+        }
+
+        // 顯示錯誤訊息
+        function showErrorMessage(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 3000);
+        }
+
+        // 修改 displayPosts 函數以支援靜默更新
+        function displayPosts(posts, append = false) {
+            const container = document.getElementById('postsContainer');
+            
+            if (!append) {
+                container.innerHTML = '';
+            }
+
+            posts.forEach(post => {
+                const postElement = createPostElement(post);
+                container.appendChild(postElement);
+                observer.observe(postElement);
+            });
+
+            initializeLazyLoading();
+        }
+
+        // 更新現有貼文的內容
+        function updateExistingPost(element, postData) {
+            const content = element.querySelector('.post-content');
+            if (content) content.textContent = postData.content;
+            
+            const timestamp = element.querySelector('.post-timestamp');
+            if (timestamp) timestamp.textContent = formatTime(postData.createdAt);
+            
+            const likeCount = element.querySelector('.like-count');
+            if (likeCount) likeCount.textContent = postData.likes || 0;
         }
 
         // 修改 toggleLike 函數
@@ -702,11 +804,9 @@
                 const likedBy = postData.likedBy || [];
                 const isLiked = likedBy.includes(currentUser.uid);
 
-                // 添加動畫類別
                 likeIcon.classList.add('like-animation');
 
                 if (isLiked) {
-                    // 取消點讚
                     await postRef.update({
                         likes: firebase.firestore.FieldValue.increment(-1),
                         likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
@@ -715,7 +815,6 @@
                     likeBtn.classList.remove('text-red-500');
                     likeIcon.setAttribute('fill', 'none');
                 } else {
-                    // 添加點讚
                     await postRef.update({
                         likes: firebase.firestore.FieldValue.increment(1),
                         likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
@@ -725,7 +824,6 @@
                     likeIcon.setAttribute('fill', 'currentColor');
                 }
 
-                // 移除動畫類別
                 setTimeout(() => {
                     likeIcon.classList.remove('like-animation');
                 }, 400);
@@ -756,9 +854,8 @@
                 sendButton.disabled = true;
                 input.disabled = true;
 
-                const userDoc = await db.collection('users').doc(currentUser.uid).get();
-                const userData = userDoc.exists ? userDoc.data() : {};
-                const displayName = userData.displayName || currentUser.displayName || '匿名用戶';
+                const userData = await getUserData(currentUser.uid);
+                const displayName = userData.displayName || '匿名用戶';
 
                 const comment = {
                     content,
@@ -767,13 +864,11 @@
                     createdAt: firebase.firestore.Timestamp.now()
                 };
 
-                // 更新 Firestore
                 const postRef = db.collection('posts').doc(postId);
                 await postRef.update({
                     comments: firebase.firestore.FieldValue.arrayUnion(comment)
                 });
 
-                // 更新 UI
                 const commentsContainer = document.querySelector(`#comments-${postId} .comments-container .space-y-2`);
                 const commentElement = document.createElement('div');
                 commentElement.className = 'flex items-start space-x-2 comment-new';
@@ -790,18 +885,14 @@
                     </div>
                 `;
 
-                // 添加新評論到頂部
                 commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
 
-                // 更新評論計數
                 const commentCountElement = document.querySelector(`button[onclick="toggleComments('${postId}')"] span`);
                 const currentCount = parseInt(commentCountElement.textContent) || 0;
                 commentCountElement.textContent = currentCount + 1;
 
-                // 清空輸入框
                 input.value = '';
 
-                // 顯示評論區域
                 const commentsSection = document.getElementById(`comments-${postId}`);
                 commentsSection.classList.remove('hidden');
 
@@ -851,32 +942,31 @@
 
         // 修改 renderPostContent 函數
         function renderPostContent(postData) {
-            let content = `<p class="mb-4 text-gray-800">${postData.content || ''}</p>`;
-            
+            let imagesHtml = '';
             if (postData.images && postData.images.length > 0) {
                 const gridClass = getGridClass(postData.images.length);
-                content += `
-                    <div class="image-grid ${gridClass} rounded-lg overflow-hidden">
-                        ${postData.images.map(imageUrl => `
-                            <div class="aspect-square overflow-hidden bg-gray-100 relative">
-                                <img data-src="${imageUrl}" 
-                                     class="post-image w-full h-full object-cover cursor-pointer" 
-                                     onclick="showImagePreview('${imageUrl}')"
-                                     alt="貼文圖片"
-                                     style="transition: opacity 0.3s ease;">
-                                <div class="loading-spinner absolute inset-0 flex items-center justify-center bg-gray-100">
-                                    <svg class="w-8 h-8 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                </div>
+                imagesHtml = `
+                    <div class="image-grid ${gridClass} rounded-lg overflow-hidden mb-3">
+                        ${postData.images.map((url, index) => `
+                            <div class="image-container">
+                                <div class="image-loading absolute inset-0"></div>
+                                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                                     data-src="${url}"
+                                     class="image-fade-in cursor-pointer"
+                                     alt="貼文圖片 ${index + 1}"
+                                     onclick="showImagePreview('${url}')"
+                                     loading="lazy"
+                                     onload="this.classList.add('loaded'); this.previousElementSibling.style.display='none';">
                             </div>
                         `).join('')}
                     </div>
                 `;
             }
             
-            return content;
+            return `
+                <div class="text-gray-800 whitespace-pre-wrap mb-4">${postData.content}</div>
+                ${imagesHtml}
+            `;
         }
 
         // 根據圖片數量決定網格類型
@@ -971,120 +1061,222 @@
         // 初始化 observer
         initializeObserver();
 
-        // 添加圖片預覽功能
+        // 修改圖片預覽函數
         function showImagePreview(imageUrl) {
             // 創建模態框
             const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-50';
-            modal.onclick = () => modal.remove();
-
-            // 創建圖片容器
-            const imgContainer = document.createElement('div');
-            imgContainer.className = 'max-w-4xl max-h-[90vh] p-4';
-
+            modal.className = 'image-preview-modal';
+            
+            // 添加加載指示器
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent';
+            
             // 創建圖片元素
             const img = document.createElement('img');
+            img.className = 'preview-image';
             img.src = imageUrl;
-            img.className = 'max-w-full max-h-[80vh] object-contain';
-            img.onclick = (e) => e.stopPropagation();
-
-            // 添加關閉按鈕
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'absolute top-4 right-4 text-white hover:text-gray-300 transition-colors';
-            closeBtn.innerHTML = `
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            `;
-            closeBtn.onclick = () => modal.remove();
-
-            // 組裝並添加到頁面
-            imgContainer.appendChild(img);
-            modal.appendChild(closeBtn);
-            modal.appendChild(imgContainer);
-            document.body.appendChild(modal);
-
-            // 添加鍵盤事件監聽
-            const handleKeyDown = (e) => {
-                if (e.key === 'Escape') {
-                    modal.remove();
-                    document.removeEventListener('keydown', handleKeyDown);
-                }
+            
+            // 圖片加載完成後顯示
+            img.onload = () => {
+                loadingIndicator.remove();
+                modal.classList.add('show');
+                img.classList.add('show');
             };
-            document.addEventListener('keydown', handleKeyDown);
+            
+            // 點擊關閉
+            modal.onclick = () => {
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 300);
+            };
+            
+            modal.appendChild(loadingIndicator);
+            modal.appendChild(img);
+            document.body.appendChild(modal);
+            
+            // 觸發動畫
+            requestAnimationFrame(() => modal.classList.add('show'));
         }
 
-        // 添加雙擊點讚功能
-        async function handleDoubleTap(postId) {
-            const likeBtn = document.getElementById(`likeBtn-${postId}`);
-            if (!likeBtn.classList.contains('text-red-500')) {
-                // 創建愛心動畫
-                const heart = document.createElement('div');
-                heart.innerHTML = '❤️';
-                heart.className = 'heart-animation';
-                event.currentTarget.appendChild(heart);
+        // 修改圖片加載函數
+        function loadPostImages(postElement) {
+            const images = postElement.querySelectorAll('.post-image');
+            images.forEach(img => {
+                if (!img.dataset.src) return;
+
+                const loadingElement = img.parentElement.querySelector('.image-loading');
                 
-                // 移除愛心元素
-                setTimeout(() => {
-                    heart.remove();
-                }, 1000);
+                const tempImage = new Image();
+                tempImage.onload = () => {
+                    img.src = img.dataset.src;
+                    img.classList.add('loaded');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                    }
+                };
                 
-                // 觸發點讚
-                await toggleLike(postId);
+                tempImage.onerror = () => {
+                    img.src = 'https://i.imgur.com/6VBx3io.png'; // 預設圖片
+                    img.classList.add('error');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                    }
+                };
+                
+                tempImage.src = img.dataset.src;
+            });
+        }
+
+        // 修改創建貼文圖片網格的函數
+        function createImageGrid(images) {
+            if (!images || images.length === 0) return '';
+            
+            const gridClass = getGridClass(images.length);
+            return `
+                <div class="image-grid ${gridClass}">
+                    ${images.map(url => `
+                        <div class="image-container">
+                            <div class="image-loading"></div>
+                            <img data-src="${url}" 
+                                 class="post-image cursor-pointer"
+                                 alt="貼文圖片"
+                                 onclick="showImagePreview('${url}')"
+                                 loading="lazy">
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 添加 createPostElement 函數
+        function createPostElement(postData) {
+            const div = document.createElement('div');
+            div.className = 'bg-white rounded-lg shadow-md p-6 mb-6 post-animation';
+            div.id = `post-${postData.id}`;
+
+            const imagesHtml = postData.images?.length ? createImageGrid(postData.images) : '';
+            
+            div.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
+                            ${postData.userAvatar ? 
+                                `<img src="${postData.userAvatar}" alt="${postData.username}" 
+                                      class="w-full h-full object-cover"
+                                      onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold\'>${postData.username.charAt(0).toUpperCase()}</div>';">` :
+                                `<div class="w-full h-full flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold">
+                                    ${postData.username.charAt(0).toUpperCase()}
+                                </div>`
+                            }
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800 hover:text-indigo-600 cursor-pointer"
+                                 onclick="navigateToProfile('${postData.userId || ''}')">
+                                ${postData.username}
+                            </div>
+                            <div class="text-sm text-gray-500">${formatTime(postData.createdAt)}</div>
+                        </div>
+                    </div>
+                    ${postData.userId === currentUser?.uid ? `
+                        <button onclick="deletePost('${postData.id}')" 
+                                class="text-gray-400 hover:text-red-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="text-gray-800 whitespace-pre-wrap mb-4">${postData.content}</div>
+                ${imagesHtml}
+                ${renderInteractions(postData.id, postData)}
+                ${renderComments(postData.id, postData.comments || [])}
+            `;
+
+            // 添加雙擊點讚功能
+            const contentArea = div.querySelector('.text-gray-800');
+            let lastTap = 0;
+            contentArea.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    handleDoubleTap(postData.id);
+                }
+                lastTap = now;
+            });
+
+            return div;
+        }
+
+        // 修改 getUserData 函數
+        async function getUserData(userId) {
+            if (!userId) return { displayName: '匿名用戶' };
+            
+            if (userCache.has(userId)) {
+                return userCache.get(userId);
+            }
+
+            try {
+                const doc = await db.collection('users').doc(userId).get();
+                const userData = doc.data() || {};
+                
+                // 處理匿名用戶資料
+                const processedData = {
+                    displayName: userData.displayName || userData.username || '匿名用戶',
+                    photoURL: userData.photoURL || userData.avatarUrl || null,
+                    ...userData
+                };
+                
+                userCache.set(userId, processedData);
+                return processedData;
+            } catch (error) {
+                console.error('獲取用戶資料失敗:', error);
+                return { displayName: '匿名用戶' };
             }
         }
 
-        // 添加 toggleFollowUser 函數
-        async function toggleFollowUser(targetUserId, button) {
-            if (!currentUser) {
-                window.location.href = 'login.html';
+        // 修改 navigateToProfile 函數
+        function navigateToProfile(userId) {
+            if (!userId) {
+                showErrorMessage('無法查看匿名用戶的資料');
                 return;
             }
+            window.location.href = `user-profile.html?uid=${userId}`;
+        }
 
-            button.disabled = true;
-            button.classList.add('opacity-50');
-            
+        // 添加刪除貼文功能
+        async function deletePost(postId) {
+            if (!confirm('確定要刪除這則貼文嗎？')) return;
+
             try {
-                const isFollowing = currentUser.following?.includes(targetUserId);
-                
-                // 更新當前用戶的追蹤列表
-                await db.collection('users').doc(currentUser.uid).update({
-                    following: isFollowing ?
-                        firebase.firestore.FieldValue.arrayRemove(targetUserId) :
-                        firebase.firestore.FieldValue.arrayUnion(targetUserId)
-                });
-
-                // 更新目標用戶的粉絲列表
-                await db.collection('users').doc(targetUserId).update({
-                    followers: isFollowing ?
-                        firebase.firestore.FieldValue.arrayRemove(currentUser.uid) :
-                        firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
-                });
-
-                // 更新本地狀態
-                if (!currentUser.following) currentUser.following = [];
-                if (isFollowing) {
-                    currentUser.following = currentUser.following.filter(id => id !== targetUserId);
-                } else {
-                    currentUser.following.push(targetUserId);
-                }
-
-                // 更新按鈕樣式
-                button.className = `ml-4 px-3 py-1 text-sm font-medium rounded-full transition-all duration-300 ${
-                    !isFollowing ? 
-                    'bg-gray-100 text-gray-600 hover:bg-gray-200' : 
-                    'bg-blue-500 text-white hover:bg-blue-600'
-                }`;
-                button.textContent = !isFollowing ? '已追蹤' : '追蹤';
-                
+                await db.collection('posts').doc(postId).delete();
+                document.getElementById(`post-${postId}`).remove();
+                showSuccessMessage('貼文已刪除');
             } catch (error) {
-                console.error('追蹤操作失敗:', error);
-                alert('操作失敗，請稍後再試');
-            } finally {
-                button.disabled = false;
-                button.classList.remove('opacity-50');
+                console.error('刪除貼文失敗:', error);
+                showErrorMessage('刪除失敗，請稍後再試');
             }
         }
+
+        // 添加成功提示訊息
+        function showSuccessMessage(message) {
+            const div = document.createElement('div');
+            div.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            div.textContent = message;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // 初始化頁面
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeObserver();
+            firebase.auth().onAuthStateChanged((user) => {
+                if (!user) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                currentUser = user;
+                loadPosts(true);
+            });
+        });
     </script>
 </body>
 </html> 
