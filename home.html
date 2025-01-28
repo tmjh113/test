@@ -360,7 +360,7 @@
                 const cachedProfile = sessionStorage.getItem(`userProfile_${user.uid}`);
                 if (cachedProfile) {
                     const profileData = JSON.parse(cachedProfile);
-                    updateUIWithProfile(profileData, user);
+                    await updateUIWithProfile(profileData, user);
                     // 在背景更新資料
                     fetchAndUpdateProfile(user);
                     return;
@@ -370,7 +370,7 @@
             } catch (error) {
                 console.error('加載用戶資料失敗:', error);
                 // 顯示預設值
-                updateUIWithProfile({ displayName: '未命名' }, user);
+                await updateUIWithProfile({ username: '未命名' }, user);
             }
         }
 
@@ -380,11 +380,11 @@
                 let userData = userDoc.data() || {};
                 
                 // 如果沒有用戶資料，創建基本資料
-                if (!userDoc.exists || !userData.displayName) {
+                if (!userDoc.exists || !userData.username) {
                     userData = {
-                        displayName: user.displayName || '未命名',
+                        username: user.displayName || '未命名',
                         email: user.email,
-                        photoURL: user.photoURL || null,
+                        avatarUrl: user.photoURL || null,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         lastLogin: firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -393,16 +393,21 @@
                     await db.collection('users').doc(user.uid).set(userData, { merge: true });
                 }
 
+                // 更新最後登入時間
+                await db.collection('users').doc(user.uid).update({
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
                 sessionStorage.setItem(`userProfile_${user.uid}`, JSON.stringify(userData));
-                updateUIWithProfile(userData, user);
+                await updateUIWithProfile(userData, user);
             } catch (error) {
                 console.error('獲取用戶資料失敗:', error);
                 // 顯示預設值
-                updateUIWithProfile({ displayName: '未命名' }, user);
+                await updateUIWithProfile({ username: '未命名' }, user);
             }
         }
 
-        function updateUIWithProfile(userData, user) {
+        async function updateUIWithProfile(userData, user) {
             // 獲取所有需要的 DOM 元素
             const elements = {
                 userAvatarImg: document.getElementById('userAvatarImg'),
@@ -425,36 +430,47 @@
                 }
             }
 
-            // 處理頭像顯示
-            const photoURL = userData.photoURL || user.photoURL;
-            if (photoURL) {
-                elements.userAvatarImg.src = photoURL;
-                elements.userAvatarImg.classList.remove('hidden');
-                elements.userAvatarText.classList.add('hidden');
-            } else {
-                const displayName = userData.displayName || '未命名';
-                const initial = displayName.charAt(0).toUpperCase();
-                elements.userAvatarText.textContent = initial;
+            try {
+                // 處理頭像顯示
+                const photoURL = userData.avatarUrl || userData.photoURL || user.photoURL;
+                if (photoURL) {
+                    // 預加載圖片
+                    await preloadImage(photoURL);
+                    elements.userAvatarImg.src = photoURL;
+                    elements.userAvatarImg.classList.remove('hidden');
+                    elements.userAvatarText.classList.add('hidden');
+                } else {
+                    const displayName = userData.displayName || userData.username || '未命名';
+                    const initial = displayName.charAt(0).toUpperCase();
+                    elements.userAvatarText.textContent = initial;
+                    elements.userAvatarText.classList.remove('hidden');
+                    elements.userAvatarImg.classList.add('hidden');
+                }
+
+                // 處理用戶名顯示
+                const displayName = userData.displayName || userData.username || '未命名';
+                elements.username.textContent = displayName;
+                if (skeletons.usernameSkeleton) {
+                    skeletons.usernameSkeleton.classList.add('hidden');
+                }
+                
+                // 處理最後登入時間
+                if (userData.lastLogin) {
+                    const lastLoginDate = userData.lastLogin.toDate ? userData.lastLogin.toDate() : new Date(userData.lastLogin);
+                    const formattedDate = lastLoginDate.toLocaleString('zh-TW');
+                    elements.lastLogin.textContent = `上次登入：${formattedDate}`;
+                } else {
+                    elements.lastLogin.textContent = '首次登入';
+                }
+                if (skeletons.lastLoginSkeleton) {
+                    skeletons.lastLoginSkeleton.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('更新用戶界面失敗:', error);
+                // 顯示預設狀態
+                elements.userAvatarText.textContent = '?';
                 elements.userAvatarText.classList.remove('hidden');
                 elements.userAvatarImg.classList.add('hidden');
-            }
-
-            // 處理用戶名顯示
-            elements.username.textContent = userData.displayName || '未命名';
-            if (skeletons.usernameSkeleton) {
-                skeletons.usernameSkeleton.classList.add('hidden');
-            }
-            
-            // 處理最後登入時間
-            if (userData.lastLogin) {
-                const lastLoginDate = userData.lastLogin.toDate ? userData.lastLogin.toDate() : new Date(userData.lastLogin);
-                const formattedDate = lastLoginDate.toLocaleString('zh-TW');
-                elements.lastLogin.textContent = `上次登入：${formattedDate}`;
-            } else {
-                elements.lastLogin.textContent = '首次登入';
-            }
-            if (skeletons.lastLoginSkeleton) {
-                skeletons.lastLoginSkeleton.classList.add('hidden');
             }
         }
 
@@ -607,7 +623,7 @@
                 // 顯示上傳中狀態
                 avatarText.textContent = '上傳中...';
                 progressContainer.classList.remove('hidden');
-                progressBar.classList.add('uploading'); // 添加進度條動畫
+                progressBar.classList.add('uploading');
 
                 // 檢查文件大小和類型
                 if (file.size > 5 * 1024 * 1024) {
@@ -620,28 +636,35 @@
                 // 壓縮圖片
                 const compressedFile = await compressImage(file);
 
+                // 準備上傳到 Cloudinary
                 const formData = new FormData();
-                formData.append('image', compressedFile);
-                formData.append('key', 'adc42ce25b77fe50ad734555fa515daf');
+                formData.append('file', compressedFile);
+                formData.append('upload_preset', 'ml_default');
+                formData.append('api_key', '855673952738363');
+                formData.append('cloud_name', 'dxe7hnvtw');
 
-                const response = await fetch('https://api.imgbb.com/1/upload', {
+                const response = await fetch(`https://api.cloudinary.com/v1_1/dxe7hnvtw/image/upload`, {
                     method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
                     body: formData
                 });
 
-                if (!response.ok) throw new Error('上傳失敗');
-
                 const data = await response.json();
-                if (!data.success) throw new Error('上傳失敗');
+                
+                if (data.error) {
+                    throw new Error(data.error.message || '上傳失敗');
+                }
 
                 // 預加載圖片
-                await preloadImage(data.data.display_url);
+                await preloadImage(data.secure_url);
 
                 // 更新用戶頭像
-                await updateUserAvatar(data.data.display_url);
+                await updateUserAvatar(data.secure_url);
 
                 // 更新界面顯示
-                avatarImg.src = data.data.display_url;
+                avatarImg.src = data.secure_url;
                 avatarImg.classList.remove('hidden');
                 avatarText.classList.add('hidden');
 

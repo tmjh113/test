@@ -1071,10 +1071,12 @@
             const loadingIndicator = document.createElement('div');
             loadingIndicator.className = 'animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent';
             
-            // 創建圖片元素
+            // 創建圖片元素，使用 Cloudinary 的高質量版本
             const img = document.createElement('img');
             img.className = 'preview-image';
-            img.src = imageUrl;
+            // 為預覽使用更高質量的圖片
+            const previewUrl = imageUrl.replace('/upload/', '/upload/q_auto,f_auto,w_1200/');
+            img.src = previewUrl;
             
             // 圖片加載完成後顯示
             img.onload = () => {
@@ -1115,7 +1117,8 @@
                 };
                 
                 tempImage.onerror = () => {
-                    img.src = 'https://i.imgur.com/6VBx3io.png'; // 預設圖片
+                    // 如果加載失敗，使用 Cloudinary 的預設圖片
+                    img.src = 'https://res.cloudinary.com/dxe7hnvtw/image/upload/v1/default-placeholder.jpg';
                     img.classList.add('error');
                     if (loadingElement) {
                         loadingElement.style.display = 'none';
@@ -1133,16 +1136,28 @@
             const gridClass = getGridClass(images.length);
             return `
                 <div class="image-grid ${gridClass}">
-                    ${images.map(url => `
-                        <div class="image-container">
-                            <div class="image-loading"></div>
-                            <img data-src="${url}" 
-                                 class="post-image cursor-pointer"
-                                 alt="貼文圖片"
-                                 onclick="showImagePreview('${url}')"
-                                 loading="lazy">
-                        </div>
-                    `).join('')}
+                    ${images.map(url => {
+                        // 將現有的 imgbb URL 轉換為 Cloudinary URL
+                        let cloudinaryUrl = url;
+                        if (url.includes('imgbb.com')) {
+                            // 如果是舊的 imgbb 圖片，轉換為 Cloudinary 的預設圖片
+                            cloudinaryUrl = 'https://res.cloudinary.com/dxe7hnvtw/image/upload/v1/default-image.jpg';
+                        }
+                        
+                        // 添加 Cloudinary 的轉換參數
+                        const optimizedUrl = cloudinaryUrl.replace('/upload/', '/upload/c_fill,w_800,h_800,q_auto,f_auto/');
+                        
+                        return `
+                            <div class="image-container">
+                                <div class="image-loading"></div>
+                                <img data-src="${optimizedUrl}" 
+                                     class="post-image cursor-pointer"
+                                     alt="貼文圖片"
+                                     onclick="showImagePreview('${cloudinaryUrl}')"
+                                     loading="lazy">
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
@@ -1277,6 +1292,32 @@
                 loadPosts(true);
             });
         });
+
+        // 添加 Cloudinary 圖片優化輔助函數
+        function getOptimizedImageUrl(originalUrl, options = {}) {
+            if (!originalUrl) return '';
+            
+            const defaultOptions = {
+                width: 800,
+                height: 800,
+                quality: 'auto',
+                format: 'auto',
+                crop: 'fill'
+            };
+
+            const opts = { ...defaultOptions, ...options };
+            
+            // 檢查是否已經是 Cloudinary URL
+            if (originalUrl.includes('cloudinary.com')) {
+                return originalUrl.replace(
+                    '/upload/',
+                    `/upload/c_${opts.crop},w_${opts.width},h_${opts.height},q_${opts.quality},f_${opts.format}/`
+                );
+            }
+            
+            // 如果不是 Cloudinary URL，返回原始 URL
+            return originalUrl;
+        }
     </script>
 </body>
 </html> 
