@@ -1,14 +1,12 @@
-
-    // Firebase 配置
-    const firebaseConfig = {
-        apiKey: "AIzaSyDAw3LKSDH HwasOhN0l63lO4I-AO1xeGGU",
-        authDomain: "tmjh113.firebaseapp.com",
-        projectId: "tmjh113",
-        storageBucket: "tmjh113.appspot.com",
-        messagingSenderId: "936878916477",
-        appId: "1:936878916477:web:cbff479db9898b0a218214",
-        measurementId: "G-J5WT01ZLBD"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyDAw3LKSDH HwasOhN0l63lO4I-AO1xeGGU",
+    authDomain: "tmjh113.firebaseapp.com",
+    projectId: "tmjh113",
+    storageBucket: "tmjh113.appspot.com",
+    messagingSenderId: "936878916477",
+    appId: "1:936878916477:web:cbff479db9898b0a218214",
+    measurementId: "G-J5WT01ZLBD"
+};
 
     // 初始化 Firebase
     firebase.initializeApp(firebaseConfig);
@@ -17,24 +15,37 @@
     const db = firebase.firestore();
     const storage = firebase.storage();
 
+    // 添加重試機制的輔助函數（放在文件開頭的配置後面）
+    async function retryOperation(operation, maxAttempts = 3, delay = 1000) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                if (attempt === maxAttempts) throw error;
+                if (error.code === 'resource-exhausted') {
+                    // 如果是配額超出錯誤，等待後重試
+                    await new Promise(resolve => setTimeout(resolve, delay * attempt));
+                    continue;
+                }
+                throw error;
+            }
+        }
+    }
+
     // 確保所有 DOM 元素都存在後再使用
     document.addEventListener('DOMContentLoaded', () => {
+        // 首先檢查必要的 DOM 元素是否存在
         const postContent = document.getElementById('postContent');
         const charCount = document.getElementById('charCount');
         const submitButton = document.getElementById('submitButton');
-        const postMedia = document.getElementById('postMedia');
-        const mediaPreview = document.getElementById('mediaPreview');
-        const postCountDisplay = document.getElementById('postCountDisplay').querySelector('.text-4xl');
-        const approvedCountDisplay = document.getElementById('approvedCountDisplay').querySelector('.text-4xl');
-        const pendingCountDisplay = document.getElementById('pendingCountDisplay').querySelector('.text-4xl');
-        const giphyButton = document.getElementById('giphyButton');
-        const giphyModal = document.getElementById('giphyModal');
-        const giphySearch = document.getElementById('giphySearch');
-        const giphyResults = document.getElementById('giphyResults');
-        const closeModal = document.getElementsByClassName('close')[0];
+
+        // 檢查必要元素是否存在
+        if (!postContent || !charCount || !submitButton) {
+            console.error('找不到必要的表單元素');
+            return;
+        }
 
         let minChars = 3;
-        let selectedGifs = [];
 
         function updateCharCount() {
             const currentLength = postContent.value.length;
@@ -49,287 +60,410 @@
 
         postContent.addEventListener('input', updateCharCount);
 
-        postMedia.addEventListener('change', function(e) {
-            handleMediaFiles(e.target.files);
-        });
-
-        function handleMediaFiles(files) {
-            const totalFiles = mediaPreview.children.length + files.length;
-            if (totalFiles > 2) {
-                alert('最多只能上傳兩個檔案');
-                return;
-            }
-
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const mediaElement = document.createElement(file.type.startsWith('video') ? 'video' : 'img');
-                    mediaElement.src = e.target.result;
-                    mediaElement.classList.add('h-28', 'w-28', 'object-cover', 'rounded-xl', 'shadow-lg', 'transition-transform', 'duration-300', 'hover:scale-110');
-                    if (file.type.startsWith('video')) {
-                        mediaElement.controls = true;
-                    }
-                    const deleteButton = createDeleteButton();
-                    const container = document.createElement('div');
-                    container.classList.add('relative');
-                    container.appendChild(mediaElement);
-                    container.appendChild(deleteButton);
-                    mediaPreview.appendChild(container);
-                }
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function createDeleteButton() {
-            const deleteButton = document.createElement('button');
-            deleteButton.innerHTML = '&times;';
-            deleteButton.classList.add('absolute', 'top-0', 'right-0', 'bg-red-500', 'text-white', 'rounded-full', 'w-8', 'h-8', 'flex', 'items-center', 'justify-center', 'cursor-pointer', 'hover:bg-red-600', 'transition-colors', 'text-xl', 'font-bold', 'shadow-lg');
-            deleteButton.addEventListener('click', function(e) {
-                e.preventDefault();
-                this.parentElement.remove();
-                selectedGifs = selectedGifs.filter(gif => gif.element !== this.parentElement);
-            });
-            return deleteButton;
-        }
-
-        giphyButton.addEventListener('click', () => {
-            giphyModal.style.display = 'block';
-            fetchTrendingGifs();
-        });
-
-        closeModal.addEventListener('click', () => {
-            giphyModal.style.display = 'none';
-        });
-
-        window.addEventListener('click', (event) => {
-            if (event.target == giphyModal) {
-                giphyModal.style.display = 'none';
-            }
-        });
-
-        const GIPHY_API_KEY = 'IDkUxoLQeEr4a7cPv8bm6PByLeWI1TTs';
-
-        giphySearch.addEventListener('input', debounce(() => {
-            const query = giphySearch.value.trim();
-            if (query) {
-                searchGiphy(query);
-            } else {
-                fetchTrendingGifs();
-            }
-        }, 300));
-
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-
-        function searchGiphy(query) {
-            fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${query}&limit=20`)
-                .then(response => response.json())
-                .then(data => displayGiphyResults(data.data));
-        }
-
-        function fetchTrendingGifs() {
-            fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20`)
-                .then(response => response.json())
-                .then(data => displayGiphyResults(data.data));
-        }
-
-        function displayGiphyResults(gifs) {
-            giphyResults.innerHTML = '';
-            gifs.forEach(gif => {
-                const img = document.createElement('img');
-                img.src = gif.images.fixed_height.url;
-                img.alt = gif.title;
-                img.addEventListener('click', () => selectGif(gif));
-                giphyResults.appendChild(img);
-            });
-        }
-
-        function selectGif(gif) {
-            if (mediaPreview.children.length >= 2) {
-                alert('最多只能選擇兩個媒體檔案（圖片或 GIF）');
-                return;
-            }
-
-            const img = document.createElement('img');
-            img.src = gif.images.fixed_height.url;
-            img.alt = gif.title;
-            img.classList.add('h-28', 'w-28', 'object-cover', 'rounded-xl', 'shadow-lg', 'transition-transform', 'duration-300', 'hover:scale-110');
-            const deleteButton = createDeleteButton();
-            const container = document.createElement('div');
-            container.classList.add('relative');
-            container.appendChild(img);
-            container.appendChild(deleteButton);
-            mediaPreview.appendChild(container);
-            selectedGifs.push({gif: gif, element: container});
-            giphyModal.style.display = 'none';
-        }
-
-        // 修改 updatePostCount 函數
-        function updatePostCount() {
-            // 使用一次查詢獲取所有需要的數據
-            db.collection('posts')
-                .get()
-                .then((snapshot) => {
-                    const stats = snapshot.docs.reduce((acc, doc) => {
-                        acc.total++;
-                        doc.data().approved ? acc.approved++ : acc.pending++;
-                        return acc;
-                    }, { total: 0, approved: 0, pending: 0 });
-
-                    postCountDisplay.textContent = stats.total;
-                    approvedCountDisplay.textContent = stats.approved;
-                    pendingCountDisplay.textContent = stats.pending;
-                });
-        }
-
-        // 頁面加載時更新帖子數量
-        updatePostCount();
-
         // 在表單提交事件處理中添加防止重複提交的邏輯
         let isSubmitting = false;
 
+        // Gemini API 密鑰
+        const GEMINI_API_KEY = 'AIzaSyBhvTxRKoP2iGUyeGsIi8X5ke-vNMvIvsw';
+
+        // 修改內容審核函數
+        async function moderateContent(content) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `分析以下內容是否包含不當內容。請只回傳一個JSON格式的結果，包含以下布林值屬性：bullying, publicInsult, defamation, conflict, violence, sexual, hate。不要包含任何其他文字。內容：${content}`
+                            }]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                // 解析 Gemini 的回應
+                const responseText = data.candidates[0].content.parts[0].text;
+                
+                // 清理回應文字，只保留 JSON 部分
+                const jsonStr = responseText.replace(/```json\n|\n```/g, '').trim();
+                console.log('清理後的 JSON 字串：', jsonStr); // 用於調試
+                
+                let result;
+                try {
+                    result = JSON.parse(jsonStr);
+                } catch (e) {
+                    console.error('JSON 解析錯誤，原始回應：', responseText);
+                    // 如果解析失敗，返回預設值
+                    result = {
+                        bullying: false,
+                        publicInsult: false,
+                        defamation: false,
+                        conflict: false,
+                        violence: false,
+                        sexual: false,
+                        hate: false
+                    };
+                }
+                
+                // 檢查是否有任何違規內容
+                const hasViolation = Object.values(result).some(value => value === true);
+                
+                return {
+                    isValid: !hasViolation,
+                    issues: result
+                };
+            } catch (error) {
+                console.error('內容審核出錯：', error);
+                // 發生錯誤時返回預設值
+                return {
+                    isValid: true,
+                    issues: {
+                        bullying: false,
+                        publicInsult: false,
+                        defamation: false,
+                        conflict: false,
+                        violence: false,
+                        sexual: false,
+                        hate: false
+                    }
+                };
+            }
+        }
+
+        // 修改確認對話框的 HTML 模板
+        function createConfirmationModal(content, ipAddress) {
+            return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn" id="confirmationModal">
+                <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 transform animate-slideIn shadow-2xl">
+                    <!-- 標題區域 -->
+                    <div class="text-center mb-8">
+                        <h3 class="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">確認發布內容</h3>
+                        <div class="mt-2 h-1 w-24 bg-gradient-to-r from-indigo-500 to-purple-600 mx-auto rounded-full"></div>
+                    </div>
+                    
+                    <!-- 內容預覽 -->
+                    <div class="mb-8 transform hover:scale-[1.02] transition-all duration-300">
+                        <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-100 shadow-sm">
+                            <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                                發布內容預覽
+                            </h4>
+                            <div class="prose max-w-none">
+                                <p class="text-gray-600 whitespace-pre-wrap">${content}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 發布資訊 -->
+                    <div class="space-y-4 mb-8">
+                        <div class="flex items-center p-4 bg-gray-50 rounded-lg transform hover:scale-[1.02] transition-all duration-300">
+                            <svg class="w-6 h-6 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">發布時間</p>
+                                <p class="text-sm text-gray-500">${new Date().toLocaleString('zh-TW')}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 bg-gray-50 rounded-lg transform hover:scale-[1.02] transition-all duration-300">
+                            <svg class="w-6 h-6 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">IP 位址</p>
+                                <p class="text-sm text-gray-500">${ipAddress}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 修改版規確認複選框 -->
+                    <div class="mb-8">
+                        <label class="flex items-center space-x-3 group cursor-pointer select-none">
+                            <div class="relative flex-shrink-0">
+                                <input type="checkbox" id="privacyCheck" class="hidden">
+                                <div class="checkbox-bg w-6 h-6 border-2 border-gray-300 rounded-lg group-hover:border-indigo-500 transition-colors duration-200 ease-in-out">
+                                    <div class="checkbox-icon absolute inset-0 flex items-center justify-center opacity-0 scale-90 transition-all duration-200 ease-in-out">
+                                        <svg class="w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 00-1.414-1.414L8 11.172 5.707 8.879a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l7-7z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-sm text-gray-600 group-hover:text-gray-800 transition-colors duration-200 ease-in-out">
+                                我已閱讀並同意
+                                <a href="https://tmjh113.github.io/tmjhsafe/" target="_blank" class="text-indigo-500 hover:text-indigo-600 underline">乾淨天中版規</a>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- 按鈕組 -->
+                    <div class="flex space-x-4">
+                        <button id="cancelPost" class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 active:scale-95">
+                            <span class="flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                取消
+                            </span>
+                        </button>
+                        <button id="confirmPost" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-95" disabled>
+                            <span class="flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                開始檢測
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // 修改檢測動畫模態框
+        function createCheckingModal() {
+            return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn" id="checkingModal">
+                <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 transform animate-slideIn text-center">
+                    <div class="checking-animation">
+                        <div class="scanning-circle">
+                            <div class="scanning-line"></div>
+                            <svg class="scanning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                                </path>
+                            </svg>
+                        </div>
+                        <p class="text-xl font-medium text-gray-800 mt-6 mb-2">正在進行 AI 內容檢測</p>
+                        <div class="loading-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // 添加違規內容顯示模態框
+        function createViolationModal(issues) {
+            let violationList = '';
+            if (issues.bullying) violationList += '<li class="text-red-600">• 涉及校園霸凌</li>';
+            if (issues.publicInsult) violationList += '<li class="text-red-600">• 涉及公然侮辱</li>';
+            if (issues.defamation) violationList += '<li class="text-red-600">• 涉及誹謗</li>';
+            if (issues.conflict) violationList += '<li class="text-red-600">• 可能起群眾紛爭</li>';
+            if (issues.violence) violationList += '<li class="text-red-600">• 包含暴力內容</li>';
+            if (issues.sexual) violationList += '<li class="text-red-600">• 包含不當性暗示</li>';
+            if (issues.hate) violationList += '<li class="text-red-600">• 包含仇恨或歧視言論</li>';
+
+            return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn" id="violationModal">
+                <div class="bg-white rounded-xl p-6 max-w-lg w-full mx-4 transform animate-slideIn">
+                    <h3 class="text-2xl font-bold mb-4 text-red-600">內容審核未通過</h3>
+                    <p class="text-gray-700 mb-4">很抱歉，您的內容未通過 AI 審核，檢測到以下違規內容：</p>
+                    <ul class="mb-6 space-y-2">
+                        ${violationList}
+                    </ul>
+                    <button id="closeViolationModal" class="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                        關閉
+                    </button>
+                </div>
+            </div>
+            `;
+        }
+
+        // 添加發送中的動畫模態框
+        function createSendingModal() {
+            return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn" id="sendingModal">
+                <div class="bg-white rounded-xl p-8 max-w-lg w-full mx-4 transform animate-slideIn text-center">
+                    <div class="sending-animation mb-6">
+                        <svg class="paper-plane mx-auto" width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21.7071 2.29289C22.0976 2.68342 22.0976 3.31658 21.7071 3.70711L12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071C10.9024 12.3166 10.9024 11.6834 11.2929 11.2929L20.2929 2.29289C20.6834 1.90237 21.3166 1.90237 21.7071 2.29289Z" fill="#4F46E5"/>
+                            <path d="M21.7071 2.29289C22.0976 2.68342 22.0976 3.31658 21.7071 3.70711L12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071L2.29289 3.70711C1.90237 3.31658 1.90237 2.68342 2.29289 2.29289C2.68342 1.90237 3.31658 1.90237 3.70711 2.29289L12 10.5858L20.2929 2.29289C20.6834 1.90237 21.3166 1.90237 21.7071 2.29289Z" fill="#4F46E5"/>
+                        </svg>
+                    </div>
+                    <p class="text-xl font-medium text-gray-800 mb-2">正在發送貼文</p>
+                    <p class="text-gray-600">請稍候...</p>
+                </div>
+            </div>
+            `;
+        }
+
+        // 修改成功動畫模態框，使用新的 SVG 打勾圖標、調整線條位置和大小，加入 overflow-hidden 並優化動畫
+        function createSuccessModal() {
+            return `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn overflow-hidden" id="successModal">
+                <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 transform animate-slideIn text-center relative">
+                    <div class="mb-8 flex justify-center items-center">
+                        <svg class="w-20 h-20" viewBox="0 0 52 52">
+                            <circle class="path circle-animation" cx="26" cy="26" r="25" fill="none" stroke="#4CAF50" stroke-width="2" />
+                            <path class="path check-animation" fill="none" stroke="#4CAF50" stroke-width="5" d="M14 27 L22 35 L38 19" />
+                        </svg>
+                    </div>
+                    <div class="text-center mt-4">
+                        <h3 class="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent inline-block">發布成功！</h3>
+                        <p class="text-gray-600">您的貼文已送出審核</p>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // 修改表單提交處理函數
         document.getElementById('postForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // 防止重複提交
             if (isSubmitting) return;
             isSubmitting = true;
             
             const content = postContent.value;
-            const mediaFiles = postMedia.files;
             
-            if (content.trim().length < minChars && mediaFiles.length === 0 && selectedGifs.length === 0) {
-                alert(`請輸入至少${minChars}字的內容或選擇圖片/GIF`);
+            if (content.trim().length < minChars) {
+                alert(`請輸入至少${minChars}字的內容`);
                 isSubmitting = false;
                 return;
             }
-            
-            // 顯示加載動畫
-            submitButton.innerHTML = '<div class="spinner mx-auto"></div>';
-            submitButton.disabled = true;
-            
-            try {
-                console.log("開始處理單提交");
 
+            try {
                 // 獲取 IP 地址
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
                 const ipAddress = ipData.ip;
 
-                // 上傳媒體檔案到 Firebase Storage
-                const mediaUrls = [];
-                for (let i = 0; i < mediaFiles.length; i++) {
-                    const file = mediaFiles[i];
-                    const storageRef = storage.ref('media/' + Date.now() + '_' + file.name);
-                    await storageRef.put(file);
-                    const url = await storageRef.getDownloadURL();
-                    mediaUrls.push({url: url, type: file.type.startsWith('video') ? 'video' : 'image'});
-                }
-
-                // 添加選擇的 GIF 並上傳到 Firebase Storage
-                for (let i = 0; i < selectedGifs.length; i++) {
-                    const gif = selectedGifs[i].gif;
-                    const response = await fetch(gif.images.original.url);
-                    const blob = await response.blob();
-                    const storageRef = storage.ref('gifs/' + Date.now() + '_' + gif.id + '.gif');
-                    await storageRef.put(blob);
-                    const url = await storageRef.getDownloadURL();
-                    mediaUrls.push({url: url, type: 'gif'});
-                }
-
-                // 修改用戶查詢邏輯
-                const CACHE_KEY = 'usersList';
-                const CACHE_TIME = 5 * 60 * 1000; // 5分鐘
+                // 創建並顯示確認對話框
+                document.body.insertAdjacentHTML('beforeend', createConfirmationModal(content, ipAddress));
                 
-                let users;
-                const cachedData = sessionStorage.getItem(CACHE_KEY);
-                if (cachedData) {
-                    const { data, timestamp } = JSON.parse(cachedData);
-                    if (Date.now() - timestamp < CACHE_TIME) {
-                        users = data;
+                const modal = document.getElementById('confirmationModal');
+                const confirmBtn = document.getElementById('confirmPost');
+                const cancelBtn = document.getElementById('cancelPost');
+                const privacyCheck = document.getElementById('privacyCheck');
+
+                // 隱私政策勾選處理
+                privacyCheck.addEventListener('change', () => {
+                    const checkboxBg = document.querySelector('.checkbox-bg');
+                    const checkboxIcon = document.querySelector('.checkbox-icon');
+                    
+                    if (privacyCheck.checked) {
+                        checkboxBg.classList.add('bg-indigo-500', 'border-indigo-500');
+                        checkboxIcon.classList.remove('opacity-0', 'scale-90');
+                        checkboxIcon.classList.add('opacity-100', 'scale-100');
+                        confirmBtn.disabled = false;
+                        confirmBtn.classList.add('hover:scale-105');
+                    } else {
+                        checkboxBg.classList.remove('bg-indigo-500', 'border-indigo-500');
+                        checkboxIcon.classList.add('opacity-0', 'scale-90');
+                        checkboxIcon.classList.remove('opacity-100', 'scale-100');
+                        confirmBtn.disabled = true;
+                        confirmBtn.classList.remove('hover:scale-105');
                     }
-                }
-
-                if (!users) {
-                    const usersSnapshot = await db.collection('users').get();
-                    users = usersSnapshot.docs.map(doc => doc.id);
-                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-                        data: users,
-                        timestamp: Date.now()
-                    }));
-                }
-
-                const assignedUser = users[Math.floor(Math.random() * users.length)];
-
-                // 使用批量寫入來減少數據庫操作
-                const batch = db.batch();
-                
-                // 創建新帖子
-                const postRef = db.collection('posts').doc();
-                batch.set(postRef, {
-                    content: content,
-                    mediaUrls: mediaUrls,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    ipAddress: ipAddress,
-                    assignedUser: assignedUser
                 });
 
-                // 更新 tmjh 集合
-                const tmjhRef = db.collection('tmjh').doc(assignedUser);
-                batch.set(tmjhRef, {
-                    posts: firebase.firestore.FieldValue.arrayUnion(postRef.id)
-                }, { merge: true });
+                // 取消按鈕處理
+                cancelBtn.addEventListener('click', () => {
+                    modal.remove();
+                    isSubmitting = false;
+                });
 
-                // 執行批量寫入
-                await batch.commit();
+                // 確認按鈕處理
+                confirmBtn.addEventListener('click', async () => {
+                    // 移除確認對話框
+                    modal.remove();
+                    
+                    // 顯示檢測動畫
+                    document.body.insertAdjacentHTML('beforeend', createCheckingModal());
+                    const checkingModal = document.getElementById('checkingModal');
 
-                // 更新帖子數量
-                updatePostCount();
+                    try {
+                        // 進行 AI 內容審核
+                        const moderationResult = await moderateContent(content);
+                        
+                        // 移除檢測動畫
+                        checkingModal.remove();
 
-                // 顯示成功消息
-                submitButton.innerHTML = `
-                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                    </svg>
-                `;
-                submitButton.classList.add('bg-green-500');
-                submitButton.classList.remove('bg-gradient-to-r', 'from-indigo-500', 'to-pink-500');
-                
-                // 顯示審核消息
-                const message = document.createElement('div');
-                message.className = 'mt-4 p-3 bg-indigo-100 text-indigo-700 rounded-lg text-center fade-in font-medium';
-                message.textContent = '天中乾淨正在審核您的貼文，請稍後';
-                this.insertAdjacentElement('afterend', message);
-                
-                // 重置表單
-                setTimeout(() => {
-                    this.reset();
-                    charCount.textContent = '已輸入 0 字';
-                    charCount.classList.remove('text-red-500');
-                    submitButton.innerHTML = '發布';
-                    submitButton.disabled = false;
-                    submitButton.classList.remove('bg-green-500');
-                    submitButton.classList.add('bg-gradient-to-r', 'from-indigo-500', 'to-pink-500');
-                    message.remove();
-                    mediaPreview.innerHTML = '';
-                    selectedGifs = [];
-                }, 3000);
+                        if (!moderationResult.isValid) {
+                            // 顯示違規內容模態框
+                            document.body.insertAdjacentHTML('beforeend', createViolationModal(moderationResult.issues));
+                            const violationModal = document.getElementById('violationModal');
+                            const closeBtn = document.getElementById('closeViolationModal');
+                            
+                            closeBtn.addEventListener('click', () => {
+                                violationModal.remove();
+                                isSubmitting = false;
+                            });
+                            return;
+                        }
+
+                        // 顯示發送中動畫
+                        document.body.insertAdjacentHTML('beforeend', createSendingModal());
+                        const sendingModal = document.getElementById('sendingModal');
+
+                        // 使用重試機制發布貼文
+                        await retryOperation(async () => {
+                            const batch = db.batch();
+                            const postRef = db.collection('posts').doc();
+                            
+                            batch.set(postRef, {
+                                content: content,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                ipAddress: ipAddress,
+                                approved: false
+                            });
+
+                            await batch.commit();
+                        });
+
+                        // 移除發送中動畫
+                        if (sendingModal) {
+                            sendingModal.remove();
+                        }
+
+                        // 顯示成功動畫
+                        document.body.insertAdjacentHTML('beforeend', createSuccessModal());
+                        const successModal = document.getElementById('successModal');
+                        
+                        // 添加五彩紙屑效果
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 }
+                        });
+
+                        // 3秒後關閉成功提示並重置表單
+                        setTimeout(() => {
+                            if (successModal) {
+                                successModal.remove();
+                            }
+                            postForm.reset();
+                            charCount.textContent = '已輸入 0 字';
+                            isSubmitting = false;
+                        }, 3000);
+
+                    } catch (error) {
+                        console.error("發布過程出錯: ", error);
+                        if (error.code === 'resource-exhausted') {
+                            alert('系統暫時繁忙，請稍後再試。');
+                        } else {
+                            alert('發布失敗，請稍後再試。');
+                        }
+                        checkingModal.remove();
+                        if (sendingModal) {
+                            sendingModal.remove();
+                        }
+                        isSubmitting = false;
+                    }
+                });
+
             } catch (error) {
-                console.error("發布帖子時出錯: ", error);
+                console.error("發布過程出錯: ", error);
                 alert('發布失敗，請稍後再試。');
-                submitButton.innerHTML = '發布';
-                submitButton.disabled = false;
-            } finally {
                 isSubmitting = false;
             }
         });
@@ -338,79 +472,18 @@
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         const nav = document.querySelector('nav');
 
-        mobileMenuBtn.addEventListener('click', () => {
-            nav.classList.toggle('show');
-        });
+        if (mobileMenuBtn && nav) {
+            mobileMenuBtn.addEventListener('click', () => {
+                nav.classList.toggle('show');
+            });
 
-        // 點擊導航欄外部時關閉選單
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768 && 
-                !nav.contains(e.target) && 
-                !mobileMenuBtn.contains(e.target)) {
-                nav.classList.remove('show');
-            }
-        });
-
-        // 更新當前頁面的活動狀態
-        const currentPath = window.location.pathname;
-        document.querySelectorAll('.nav-link').forEach(link => {
-            if (link.getAttribute('href') === currentPath.split('/').pop()) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
-        });
-
-        // 添加到 DOMContentLoaded 事件處理程序內
-        const toggleNav = document.getElementById('toggleNav');
-        const sideNav = document.getElementById('sideNav');
-        const mainContent = document.querySelector('main');
-
-        // 從 localStorage 讀取導航欄狀態
-        const isNavCollapsed = localStorage.getItem('navCollapsed') === 'true';
-        if (isNavCollapsed) {
-            sideNav.classList.add('nav-collapsed');
-            mainContent.classList.add('nav-collapsed-margin');
+            // 點擊導航欄外部時關閉選單
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth <= 768 && 
+                    !nav.contains(e.target) && 
+                    !mobileMenuBtn.contains(e.target)) {
+                    nav.classList.remove('show');
+                }
+            });
         }
-
-        toggleNav.addEventListener('click', () => {
-            sideNav.classList.toggle('nav-collapsed');
-            mainContent.classList.toggle('nav-collapsed-margin');
-            
-            // 保存導航欄狀態到 localStorage
-            localStorage.setItem('navCollapsed', sideNav.classList.contains('nav-collapsed'));
-        });
-
-        // 添加工具提示功能
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            const title = link.getAttribute('title');
-            if (title) {
-                link.addEventListener('mouseenter', (e) => {
-                    if (sideNav.classList.contains('nav-collapsed')) {
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'tooltip';
-                        tooltip.textContent = title;
-                        tooltip.style.cssText = `
-                            position: fixed;
-                            background: rgba(0, 0, 0, 0.8);
-                            color: white;
-                            padding: 5px 10px;
-                            border-radius: 5px;
-                            font-size: 14px;
-                            z-index: 1000;
-                            pointer-events: none;
-                            transition: opacity 0.2s;
-                        `;
-                        document.body.appendChild(tooltip);
-                        
-                        const rect = link.getBoundingClientRect();
-                        tooltip.style.left = rect.right + 10 + 'px';
-                        tooltip.style.top = rect.top + (rect.height - tooltip.offsetHeight) / 2 + 'px';
-                        
-                        link.addEventListener('mouseleave', () => tooltip.remove());
-                    }
-                });
-            }
-        });
     });
