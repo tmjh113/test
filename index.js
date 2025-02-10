@@ -1,11 +1,11 @@
 const firebaseConfig = {
-    apiKey: "AIzaSyDAw3LKSDH HwasOhN0l63lO4I-AO1xeGGU",
-    authDomain: "tmjh113.firebaseapp.com",
-    projectId: "tmjh113",
-    storageBucket: "tmjh113.appspot.com",
-    messagingSenderId: "936878916477",
-    appId: "1:936878916477:web:cbff479db9898b0a218214",
-    measurementId: "G-J5WT01ZLBD"
+  apiKey: "AIzaSyAMAA0gsjWARESJeQWIzy-RqwOrk40KRk0",
+  authDomain: "nmcoin-cab04.firebaseapp.com",
+  projectId: "nmcoin-cab04",
+  storageBucket: "nmcoin-cab04.appspot.com",
+  messagingSenderId: "26525674872",
+  appId: "1:26525674872:web:54e9b4610ec263585dec8d",
+  measurementId: "G-5689JZRHPD"
 };
 
     // 初始化 Firebase
