@@ -610,7 +610,7 @@ const firebaseConfig = {
                             <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                             </svg>
-                            <span>回覆</span>
+                            <span class="reply-count">回覆</span>
                         </button>
                     </div>
                     <time datetime="${new Date(post.createdAt.toDate()).toISOString()}" class="text-gray-400">${formatTimeAgo(post.createdAt.toDate())}</time>
@@ -630,6 +630,19 @@ const firebaseConfig = {
                     </div>
                 </div>
             `;
+
+            // 點擊回覆按鈕時，先取得該貼文的回覆數量
+            const replyButton = postElement.querySelector('.reply-button');
+            const replyCount = postElement.querySelector('.reply-count');
+            
+            // 當貼文載入時，檢查回覆數量
+            fetchReplyCount(post.id).then(count => {
+                if (count > 0) {
+                    replyCount.textContent = `回覆 (${count})`;
+                } else {
+                    replyCount.textContent = '回覆';
+                }
+            });
 
             // 添加點讚事件監聽器
             const likeButton = postElement.querySelector('.like-button');
@@ -696,7 +709,6 @@ const firebaseConfig = {
             });
 
             // 回覆按鈕處理
-            const replyButton = postElement.querySelector('.reply-button');
             const repliesContainer = postElement.querySelector('.replies-container');
             const replyForm = postElement.querySelector('.reply-form');
 
@@ -739,13 +751,31 @@ const firebaseConfig = {
                 cancelButton.disabled = true;
                 
                 try {
+                    // 獲取 IP 地址
+                    let ipAddress = 'unknown';
+                    try {
+                        const ipResponse = await fetch('https://api.ipify.org?format=json');
+                        if (ipResponse.ok) {
+                            const ipData = await ipResponse.json();
+                            ipAddress = ipData.ip;
+                        }
+                    } catch (error) {
+                        console.error('獲取 IP 失敗：', error);
+                    }
+
+                    // 生成唯一的用戶ID
+                    const userId = localStorage.getItem('userId') || generateUserId();
+                    
                     // 創建新回覆
                     const reply = {
                         content: replyContent,
-                        postId: post.id,
+                        originalPostId: post.id,
+                        originalPostContent: post.content,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        approved: false, // 初始設置為未批准
-                        published: false // 初始設置為未發布
+                        status: 'pending', // 初始設置為待審核
+                        published: false, // 初始設置為未發布
+                        ipAddress: ipAddress,
+                        userId: userId
                     };
                     
                     // 顯示回覆正在審核的訊息
@@ -761,8 +791,8 @@ const firebaseConfig = {
                     `;
                     replyList.appendChild(tempReplyElement);
                     
-                    // 添加到 Firestore
-                    const replyRef = await db.collection('replies').add(reply);
+                    // 添加到 Firestore 的 postsrea 集合
+                    const replyRef = await db.collection('postsrea').add(reply);
                     
                     // 清空並隱藏回覆表單
                     replyForm.querySelector('textarea').value = '';
@@ -930,19 +960,40 @@ const firebaseConfig = {
 
         // 載入帖子的回覆
         function loadReplies(postId) {
-            const repliesContainer = document.getElementById(`replies-${postId}`);
-            if (!repliesContainer) return;
+            const post = document.querySelector(`[data-id="${postId}"]`);
+            if (!post) return;
             
-            db.collection('posts').doc(postId).collection('replies')
+            const repliesContainer = post.querySelector('.replies-container');
+            const repliesList = repliesContainer.querySelector('.replies-list');
+            
+            // 清空原有內容並顯示加載指示器
+            repliesList.innerHTML = `
+                <div class="flex justify-center items-center py-4">
+                    <div class="loading-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            `;
+            
+            // 從 postsrea 集合中查詢已審核通過的回覆
+            db.collection('postsrea')
+                .where('originalPostId', '==', postId)
+                .where('status', '==', 'approved')
                 .orderBy('createdAt', 'asc')
                 .get()
                 .then(snapshot => {
-                    repliesContainer.innerHTML = '';
+                    repliesList.innerHTML = '';
                     
-                    if (snapshot.empty) return;
-                    
-                    const replies = document.createElement('div');
-                    replies.className = 'border-t border-gray-100 pt-4 mt-4 space-y-4';
+                    if (snapshot.empty) {
+                        repliesList.innerHTML = `
+                            <div class="text-center py-3">
+                                <p class="text-gray-500 text-sm">暫無回覆</p>
+                            </div>
+                        `;
+                        return;
+                    }
                     
                     snapshot.forEach(doc => {
                         const reply = doc.data();
@@ -950,7 +1001,7 @@ const firebaseConfig = {
                         const timeAgo = formatTimeAgo(replyDate);
                         
                         const replyElement = document.createElement('div');
-                        replyElement.className = 'bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors duration-200';
+                        replyElement.className = 'bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors duration-200 mb-3';
                         replyElement.innerHTML = `
                             <div class="flex items-center mb-2">
                                 <div class="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm">
@@ -964,26 +1015,32 @@ const firebaseConfig = {
                             <p class="text-gray-700 whitespace-pre-wrap">${reply.content}</p>
                         `;
                         
-                        replies.appendChild(replyElement);
+                        repliesList.appendChild(replyElement);
                     });
-                    
-                    // 更新回覆計數
-                    const repliesCount = snapshot.size;
-                    const repliesCountElement = document.querySelector(`[data-post-id="${postId}"]`).closest('.post-card').querySelector('.replies-count');
-                    if (repliesCountElement) {
-                        repliesCountElement.textContent = repliesCount;
-                    }
-                    
-                    repliesContainer.appendChild(replies);
                 })
                 .catch(error => {
                     console.error("載入回覆出錯: ", error);
-                    repliesContainer.innerHTML = `
-                        <div class="text-center py-3 mt-4 bg-red-50 rounded-lg">
+                    repliesList.innerHTML = `
+                        <div class="text-center py-3 bg-red-50 rounded-lg">
                             <p class="text-red-500 text-sm">載入回覆時出錯</p>
                         </div>
                     `;
                 });
+        }
+        
+        // 獲取貼文回覆數量的函數
+        async function fetchReplyCount(postId) {
+            try {
+                const snapshot = await db.collection('postsrea')
+                    .where('originalPostId', '==', postId)
+                    .where('status', '==', 'approved')
+                    .get();
+                
+                return snapshot.size;
+            } catch (error) {
+                console.error('獲取回覆數量失敗:', error);
+                return 0;
+            }
         }
         
         // 時間格式化工具函數
