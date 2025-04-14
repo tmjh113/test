@@ -7,6 +7,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     
     <style>
@@ -32,7 +34,8 @@
             border-radius: 10px;
         }
         #pendingPostsContainer,
-        #approvedPostsContainer {
+        #approvedPostsContainer,
+        #blockedIpsContainer {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
@@ -40,7 +43,7 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
-        .post-card {
+        .post-card, .ip-card {
             background: rgba(255, 255, 255, 0.95);
             border: none;
             padding: 25px;
@@ -52,11 +55,11 @@
             display: flex;
             flex-direction: column;
         }
-        .post-card:hover {
+        .post-card:hover, .ip-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
         }
-        .post-header {
+        .post-header, .ip-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -64,13 +67,13 @@
             padding-bottom: 15px;
             border-bottom: 2px solid rgba(238, 238, 238, 0.5);
         }
-        .post-header h3 {
+        .post-header h3, .ip-header h3 {
             color: #2c3e50;
             font-size: 1.3em;
             font-weight: 700;
             letter-spacing: 0.5px;
         }
-        .post-content {
+        .post-content, .ip-content {
             color: #34495e;
             margin-bottom: 20px;
             font-size: 1.15em;
@@ -101,7 +104,7 @@
         video.post-media {
             background-color: #000;
         }
-        .post-actions {
+        .post-actions, .ip-actions {
             margin-top: auto;
             text-align: right;
             display: flex;
@@ -110,7 +113,9 @@
         }
         .download-btn,
         .approve-btn,
-        .delete-btn {
+        .delete-btn,
+        .block-btn,
+        .unblock-btn {
             padding: 10px 20px;
             border-radius: 25px;
             font-size: 1em;
@@ -131,13 +136,23 @@
             background: linear-gradient(45deg, #e74c3c, #c0392b);
             box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
         }
+        .block-btn {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+        .unblock-btn {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
         .download-btn:hover,
         .approve-btn:hover,
-        .delete-btn:hover {
+        .delete-btn:hover,
+        .block-btn:hover,
+        .unblock-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
         }
-        .loading, .error-message, .no-posts {
+        .loading, .error-message, .no-posts, .no-ips {
             text-align: center;
             padding: 30px;
             font-size: 1.2em;
@@ -147,336 +162,309 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             grid-column: 1 / -1;
         }
+        .new-ip-form {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        .form-submit {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        .form-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
         @media (max-width: 600px) {
             body {
                 padding: 10px;
             }
             
             #pendingPostsContainer,
-            #approvedPostsContainer {
+            #approvedPostsContainer,
+            #blockedIpsContainer {
                 grid-template-columns: 1fr;
             }
-            .post-card {
+            .post-card, .ip-card {
                 padding: 20px;
             }
-            .post-header h3 {
+            .post-header h3, .ip-header h3 {
                 font-size: 1.1em;
             }
             .post-time {
                 font-size: 0.85em;
             }
-            .post-content {
+            .post-content, .ip-content {
                 font-size: 1em;
             }
+        }
+        .ai-check-btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            color: white;
+        }
+
+        .ai-check-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .ai-safe {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+
+        .ai-danger {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+
+        .batch-actions {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 20px;
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            line-height: 20px;
+        }
+
+        .batch-btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .batch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .processing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .processing-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .status-text {
+            margin: 10px 0;
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .tab-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-buttons {
+            display: flex;
+            background: #f5f7fa;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            color: #7f8c8d;
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #3498db;
+            box-shadow: 0 2px 0 #3498db;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .reason-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        
+        .timestamp-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #7f8c8d;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
-    <h2 class="section-title">待審核留言</h2>
-    <div id="pendingPostsContainer"></div>
-    
-    <h2 class="section-title">已批准留言</h2>
-    <div id="approvedPostsContainer"></div>
-    <script>
-    // Firebase 配置
-    const firebaseConfig = {
-        apiKey: "AIzaSyDAw3LKSDH HwasOhN0l63lO4I-AO1xeGGU",
-        authDomain: "tmjh113.firebaseapp.com",
-        projectId: "tmjh113",
-        storageBucket: "tmjh113.appspot.com",
-        messagingSenderId: "936878916477",
-        appId: "1:936878916477:web:cbff479db9898b0a218214",
-        measurementId: "G-J5WT01ZLBD"
-    };
-  
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="posts-tab">貼文審核</button>
+            <button class="tab-button" data-tab="ip-tab">IP 管理</button>
+        </div>
+        
+        <div class="tab-content active" id="posts-tab">
+            <h2 class="section-title">待審核留言</h2>
+            <div id="pendingPostsContainer">
+                <div class="loading">正在載入中...</div>
+            </div>
+            
+            <h2 class="section-title">已批准留言</h2>
+            <div id="approvedPostsContainer">
+                <div class="loading">正在載入中...</div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="ip-tab">
+            <h2 class="section-title">IP 封鎖管理</h2>
+            
+            <div class="new-ip-form">
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">封鎖新 IP</h3>
+                <div class="form-group">
+                    <label for="ipAddress" class="form-label">IP 地址</label>
+                    <input type="text" id="ipAddress" class="form-input" placeholder="例如: 192.168.1.1">
+                </div>
+                <div class="form-group">
+                    <label for="blockReason" class="form-label">封鎖原因</label>
+                    <input type="text" id="blockReason" class="form-input" placeholder="例如: 重複發布違規內容">
+                </div>
+                <button id="blockIpBtn" class="form-submit">封鎖 IP</button>
+            </div>
+            
+            <div id="blockedIpsContainer">
+                <div class="loading">正在載入 IP 資訊...</div>
+            </div>
+        </div>
+    </div>
 
-  
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        // 獲取並顯示留言
-        async function loadPosts() {
-            const pendingContainer = document.getElementById('pendingPostsContainer');
-            const approvedContainer = document.getElementById('approvedPostsContainer');
-            
-            pendingContainer.innerHTML = '<div class="loading">載入中...</div>';
-            approvedContainer.innerHTML = '<div class="loading">載入中...</div>';
-            try {
-                const querySnapshot = await db.collection('posts')
-                    .orderBy('createdAt', 'desc')
-                    .get();
-                pendingContainer.innerHTML = '';
-                approvedContainer.innerHTML = '';
-                if (querySnapshot.empty) {
-                    pendingContainer.innerHTML = '<div class="no-posts">目前還沒有待審核留言</div>';
-                    approvedContainer.innerHTML = '<div class="no-posts">目前還沒有已批准留言</div>';
-                } else {
-                    querySnapshot.forEach(doc => {
-                        const postData = doc.data();
-                        const postElement = createPostElement(doc.id, postData);
-                        
-                        if (postData.approved) {
-                            approvedContainer.appendChild(postElement);
-                        } else {
-                            pendingContainer.appendChild(postElement);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error("載入留言時發生錯誤：", error);
-                pendingContainer.innerHTML = '<div class="error-message">載入留言失敗，請稍後再試</div>';
-                approvedContainer.innerHTML = '<div class="error-message">載入留言失敗，請稍後再試</div>';
-            }
-        }
-        function createPostElement(docId, postData) {
-            const postElement = document.createElement('div');
-            postElement.className = 'post-card';
-            
-            const timestamp = postData.createdAt.toDate();
-            const formattedDate = timestamp.toLocaleString('zh-TW', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            const actionButtons = postData.approved ? 
-                `<button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>` :
-                `<button class="approve-btn" onclick="approvePost('${docId}')">批准</button>
-                 <button class="delete-btn" onclick="deletePost('${docId}')">刪除</button>`;
-            const publishedStatus = postData.published ? '已發布' : '未發布';
-            postElement.innerHTML = `
-                <div class="post-header">
-                    <h3>📝 匿名留言</h3>
-                    <span class="post-time">🕒 ${formattedDate}</span>
+    <div class="batch-actions">
+        <button class="batch-btn" onclick="batchPublishToIG()">批量發布到 IG（5張一組）</button>
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-text">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="processing-overlay">
+        <div class="processing-card">
+            <h3 class="status-text">正在處理中...</h3>
+            <div class="progress-container" style="display: block;">
+                <div class="progress-bar">
+                    <div class="progress-text">0%</div>
                 </div>
-                <div class="post-content">${postData.content}</div>
-                ${postData.mediaUrls ? postData.mediaUrls.map(url => {
-                    if (url.type === 'image') {
-                        return `<img src="${url.url}" alt="留言圖片" class="post-media" loading="lazy">`;
-                    } else if (url.type === 'video') {
-                        return `<video controls class="post-media" preload="metadata">
-                                    <source src="${url.url}" type="video/mp4">
-                                    您的瀏覽器不支持視頻標籤。
-                                </video>`;
-                    } else if (url.type === 'gif') {
-                        return `<img src="${url.url}" alt="留言GIF" class="post-media" loading="lazy">`;
-                    }
-                }).join('') : ''}
-                <div class="post-actions">
-                    <button class="download-btn" onclick="downloadPostAsImage(this, '${docId}')">下載圖片</button>
-                    ${actionButtons}
-                </div>
-                <div class="post-status">${publishedStatus}</div>
-            `;
-            return postElement;
-        }
-        // 新增批准貼文功能
-        async function approvePost(docId) {
-            try {
-                await db.collection('posts').doc(docId).update({
-                    approved: true
-                });
-                loadPosts(); // 重新載入貼文
-            } catch (error) {
-                console.error("批准貼文時發生錯誤：", error);
-                alert("批准貼文失敗，請稍後再試");
-            }
-        }
-        // 新增刪除貼文功能
-        async function deletePost(docId) {
-            if (confirm('確定要刪除這則留言嗎？')) {
-                try {
-                    await db.collection('posts').doc(docId).delete();
-                    loadPosts(); // 重新載入貼文
-                } catch (error) {
-                    console.error("刪除貼文時發生錯誤：", error);
-                    alert("刪除貼文失敗，請稍後再試");
-                }
-            }
-        }
-        async function downloadPostAsImage(button, docId) {
-            const postCard = button.closest('.post-card');
-            
-            // 檢查是否有附加圖片或照片
-            const mediaElements = postCard.querySelectorAll('img, video');
-            if (mediaElements.length > 0) {
-                // 如果有附加媒體，直接下載所有媒體
-                mediaElements.forEach(async (mediaElement, index) => {
-                    const mediaUrl = mediaElement.src;
-                    const response = await fetch(mediaUrl);
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `附加媒體_${index + 1}${getFileExtension(mediaUrl)}`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                });
-            }
-            
-            // 生成並下載模板圖片
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 800;
-            canvas.height = 600;
-            
-            // 載入背景圖片
-            const backgroundImage = new Image();
-            backgroundImage.src = 'TH.png';
-            await new Promise((resolve) => {
-                backgroundImage.onload = resolve;
-            });
-            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-            
-            // 設置文字樣式
-            ctx.font = 'bold 28px "可畫甜心體", Arial, "Noto Sans TC", sans-serif';
-            ctx.fillStyle = '#000000';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // 獲取匿名內容
-            const content = postCard.querySelector('.post-content').textContent;
-            
-            // 取得目前的編號
-            const currentNumber = await getCurrentPostNumber();
-            
-            // 文字換行處理
-            const maxWidth = 700;
-            const lineHeight = 40;
-            let x = canvas.width / 2;
-            
-            // 改進的文字換行處理
-            let lines = [];
-            let words = content.split('');
-            let currentLine = '';
-            
-            // 根據字數動態調整字體大小
-            let fontSize = 28;
-            if (content.length < 20) {
-                fontSize = 48;
-            } else if (content.length < 50) {
-                fontSize = 36;
-            }
-            ctx.font = `bold ${fontSize}px "可畫甜心體", Arial, "Noto Sans TC", sans-serif`;
-            
-            // 逐字檢查並換行
-            for (let i = 0; i < words.length; i++) {
-                let testLine = currentLine + words[i];
-                let metrics = ctx.measureText(testLine);
-                let testWidth = metrics.width;
-                
-                if (testWidth > maxWidth && i > 0) {
-                    lines.push(currentLine);
-                    currentLine = words[i];
-                } else {
-                    currentLine = testLine;
-                }
-            }
-            lines.push(currentLine);
-            
-            // 計算總高度並調整起始位置
-            const totalHeight = lines.length * lineHeight;
-            const topMargin = 100;
-            const bottomMargin = 150;
-            let startY = Math.max(topMargin, (canvas.height - totalHeight) / 2);
-            
-            // 確保文字不會超出底部
-            if (startY + totalHeight > canvas.height - bottomMargin) {
-                startY = canvas.height - bottomMargin - totalHeight;
-            }
-            
-            // 繪製文字
-            lines.forEach((line, index) => {
-                const currentY = startY + index * lineHeight;
-                ctx.fillText(line, x, currentY);
-            });
-            // 將 canvas 轉換為圖片並下載
-            canvas.toBlob(blob => {
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `匿名留言_${currentNumber}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }, 'image/png');
-            // 更新資料庫，標記為已發布
-            try {
-                await db.collection('posts').doc(docId).update({
-                    published: true,
-                    postNumber: currentNumber
-                });
-                console.log("已成功標記為已發布");
-            } catch (error) {
-                console.error("標記為已發布時發生錯誤：", error);
-            }
-        }
-        // 輔助函數：獲取文件擴展名
-        function getFileExtension(url) {
-            return url.split('.').pop().split(/\#|\?/)[0];
-        }
-        async function getCurrentPostNumber() {
-            try {
-                const snapshot = await db.collection('posts')
-                    .where('published', '==', true)
-                    .orderBy('createdAt', 'asc')  // 改用 createdAt 而不是 timestamp
-                    .get();
-                
-                if (snapshot.empty) {
-                    return 1;
-                }
-                // 獲取所有已發布的貼文並按時間排序
-                const posts = snapshot.docs.map((doc, index) => {
-                    return {
-                        id: doc.id,
-                        number: index + 1,
-                        ...doc.data()
-                    };
-                });
-                // 找出最大的編號
-                const maxNumber = posts.length;
-                return maxNumber + 1;
-                
-            } catch (error) {
-                if (error.code === 'failed-precondition') {
-                    console.error("查詢需要索引。您可以在此處創建它： https://console.firebase.google.com/v1/r/project/ctjh-84ffc/firestore/indexes?create_composite=Ckhwcm9qZWN0cy9jdGpoLTg0ZmZjL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9wb3N0cy9pbmRleGVzL18QARoNCglwdWJsaXNoZWQQARoNCgljcmVhdGVkQXQQARoMCghfX25hbWVfXxAB");
-                } else {
-                    console.error("獲取貼文編號時發生錯誤：", error);
-                }
-                return 1;
-            }
-        }
-        // 實時監聽留言變化
-        db.collection('posts').orderBy('createdAt', 'desc')
-            .onSnapshot(snapshot => {
-                const pendingContainer = document.getElementById('pendingPostsContainer');
-                const approvedContainer = document.getElementById('approvedPostsContainer');
-                
-                pendingContainer.innerHTML = '';
-                approvedContainer.innerHTML = '';
-                if (snapshot.empty) {
-                    pendingContainer.innerHTML = '<div class="no-posts">目前還沒有待審核留言</div>';
-                    approvedContainer.innerHTML = '<div class="no-posts">目前還沒有已批准留言</div>';
-                } else {
-                    snapshot.forEach(doc => {
-                        const postData = doc.data();
-                        const postElement = createPostElement(doc.id, postData);
-                        
-                        if (postData.approved) {
-                            approvedContainer.appendChild(postElement);
-                        } else {
-                            pendingContainer.appendChild(postElement);
-                        }
-                    });
-                }
-            });
-        // 頁面載入時顯示留言
-        loadPosts();
-    </script>
+            </div>
+        </div>
+    </div>
+<script src="後台.js"></script>
+<script src="publish.js"></script>
+<script src="ip-manager.js"></script>
 </body>
 </html>
